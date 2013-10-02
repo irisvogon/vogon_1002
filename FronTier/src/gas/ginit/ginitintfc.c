@@ -1815,6 +1815,7 @@ LOCAL void g_initializer(
 	}
 
 	Get_state(coords,state,comp_type(comp),NULL,intfc,init,stype);
+
 	if (debugging("init_states"))
 	{
 	    print_gas_state(state);

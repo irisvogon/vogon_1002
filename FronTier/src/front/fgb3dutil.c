@@ -1269,11 +1269,11 @@ EXPORT 	bool track_comp_through_crxings3d(
 	}
 
 	/* check and repair crossings */
-//	if (!check_and_repair_crx(intfc,smin,smax))
-//	{
-//	    DEBUG_LEAVE(track_comp_through_crxings3d)
-//	    return FUNCTION_FAILED;
-//	}
+	if (!check_and_repair_crx(intfc,smin,smax))
+	{
+	    DEBUG_LEAVE(track_comp_through_crxings3d)
+	    return FUNCTION_FAILED;
+	}
 
 	if(debugging("show_3c_comp"))
 	{
@@ -1382,10 +1382,7 @@ LOCAL	int check_and_unset_bad_comp(
 	        for (ip[0] = smin[0]; ip[0] <= smax[0]; ++ip[0])
 	        {
 		    if (unset[ip[0]][ip[1]][ip[2]] == YES)
-                    {
-		                               printf(" unset at [%d %d %d] old comp = %d \n", ip[0], ip[1], ip[2],comp[d_index3d(ip[0],ip[1],ip[2],gmax)]);
-                        comp[d_index3d(ip[0],ip[1],ip[2],gmax)] = NO_COMP;
-                     }
+		    	comp[d_index3d(ip[0],ip[1],ip[2],gmax)] = NO_COMP;
 	        }
 	    }
 	}
@@ -1908,13 +1905,14 @@ EXPORT	void  fill_comp_with_component3d(
 	    {
                 for (ip[0] = smin[0]; ip[0] <= smax[0]; ++ip[0])
 		{
-//		    if (comp[d_index3d(ip[0],ip[1],ip[2],gmax)] == NO_COMP)
+		    if (comp[d_index3d(ip[0],ip[1],ip[2],gmax)] == NO_COMP)
 		    {
 			//DEBUG_TMP print_int_vector("fill_comp_with_component3d, ip=", ip, 3, "\n");
 			
 			//L[i] + h[i]*ip[i]  is the corner of a block, it can make component3d unstable.
 			for (i = 0; i < 3; i++)
 			    coords[i] = L[i] + h[i]*(ip[i] + nodetol);
+
 			//if((ip[0] == 2 && ip[1] == 20 && ip[2] == 2 && pp_mynode() == 7) ||
 			//   (ip[0] == 22 && ip[1] == 20 && ip[2] == 2 && pp_mynode() == 6))
 			//    add_to_debug("fill_comp");
@@ -1929,7 +1927,7 @@ EXPORT	void  fill_comp_with_component3d(
 		}
 	    }
 	}
-//	status = check_and_unset_bad_comp(smin,smax,intfc);
+	status = check_and_unset_bad_comp(smin,smax,intfc);
 	
 	//if (debugging("crx_intfc"))
 	if(NO && !status)

@@ -93,7 +93,6 @@ LOCAL	void 	set_tri_list_tolerance(RECT_GRID*);
 LOCAL   float   shortest_2line_dist_dir(int,float*,float*,float*,float*,float*);
 LOCAL   COMPONENT component_wrt_icoords3d_vertex(float*,int*,POINT*,INTERFACE*);
 LOCAL	int 	compare_tris(const void*,const void*);
-int flowin_comp_func_interior(float *coords);
 
 LOCAL	float	crx_tol;/*TOLERANCE*/
 LOCAL	float	crx_tolv;
@@ -163,8 +162,6 @@ LIB_LOCAL COMPONENT component3d(
 	float		*coords,
 	INTERFACE	*intfc)
 {
-        return flowin_comp_func_interior(coords);
-         
 	TRI_PROJECTION	Closest, Tri_proj;
 	TRI_PROJECTION	*closest = &Closest, *tri_proj = &Tri_proj;
 	TRI		**t;
@@ -303,8 +300,7 @@ LIB_LOCAL COMPONENT component3d(
 	}
 	else
 	    comp = comp_at_closest(&Closest);
-        
-
+	
 	DEBUG_LEAVE(component3d)
 	return comp;
 }		/*end component3d*/

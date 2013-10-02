@@ -639,7 +639,7 @@ EXPORT  void  tecplot_interior_states(
 	char *bname,
 	Wave *wave)
 {
-        const RECT_GRID 	*rgrid = wave->rect_grid;
+	const RECT_GRID 	*rgrid = wave->rect_grid;
 	Locstate		state;
 	int		        xmax = rgrid->gmax[0];
 	int			ymax = rgrid->gmax[1];

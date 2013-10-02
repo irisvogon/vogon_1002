@@ -898,10 +898,7 @@ LOCAL	bool track_comp_and_repair3d(
         INTERFACE	*intfc,
 	Front		*fr)
 {
-        return FUNCTION_SUCCEEDED;
-
-	
-        int		num_ip, i;
+	int		num_ip, i;
 	RECT_BOX 	*boxes, *pb;
 	static int 	**ips = NULL;
 	RECT_GRID	*gr = &topological_grid(intfc);

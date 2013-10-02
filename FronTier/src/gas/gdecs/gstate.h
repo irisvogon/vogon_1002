@@ -292,7 +292,6 @@ typedef enum _INTERPOLATION_WEIGHT INTERPOLATION_WEIGHT;
 #define Inlet(state)  ((Gas *)(state))->inlet
 #define Nozzle(state) ((Gas *)(state))->nozzle
 #define Reflect_wall(state)  ((Gas *)(state))->reflect_wall
-#define Reflect_wall_y(state) ((Gas *)(state))->reflect_wall_y
 
 
 	/* Macros for accessing total energy and momentum of Gas states */
@@ -371,7 +370,7 @@ typedef enum _INTERPOLATION_WEIGHT INTERPOLATION_WEIGHT;
 #define OHS(state)	((Gas *) (state))->ohs
 
 	/* Macro for detecting nonzero limiter values */
-#define Lflag(state)	((Gas *) (state))->Limiter_flag
+//#define Lflag(state)	((Gas *) (state))->Limiter_flag
 
 #define Tflag(state)	((Gas *) (state))->Tflag
 
@@ -418,7 +417,6 @@ struct _Gas {
 	bool		inlet;
 	bool		nozzle;
 	bool		reflect_wall;
-        bool            reflect_wall_y;
         bool            flux_flag;
 	float		boundary_flux[4];
 	bool		Limiter_flag[MAX_NCOMPS+SMAXD+3];	/* YES for nonzero limiters. */

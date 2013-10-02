@@ -574,7 +574,7 @@ LOCAL	int do_cross_section(
 }		/*end do_cross_section*/
 
 /*ARGSUSED*/
-
+/*
 EXPORT	bool regrid_front_and_wave(
 	Front		*front,
 	Wave		*wave,
@@ -586,15 +586,15 @@ EXPORT	bool regrid_front_and_wave(
 	Front		*tempfront;
 	Locstate	state;
 	RECT_GRID	*sav_gr = front->rect_grid;
-	Wave		*Tempwave;
+	//Wave		Tempwave;
+        Wave            *Tempwave;
 	float		*coords;
 	bool		sav_interp = interpolate_intfc_states(front->interf);
 	int		icoords[3];
 	int		ix, xmax = fgr->gmax[0];
 	float		dt_frac = 1.0;
-	int		iy, ymax = (fgr->dim > 1) ? fgr->gmax[1] : 1;
+	int		iy, ymax = (fgr->dim > 1) ? fgr->gmax[2] : 1;
 	int		iz, zmax = (fgr->dim == 3) ? fgr->gmax[2] : 1;
-	int		i, *iperm; //permutation of {0,...,dim-1}
 
 	tempfront = copy_front(front);
 	tempfront->rect_grid = fgr;
@@ -602,7 +602,6 @@ EXPORT	bool regrid_front_and_wave(
 	set_copy_intfc_states(YES);
 	set_add_to_correspond_list(YES);
 	tempfront->interf = copy_interface(front->interf);
-
 	if (tempfront->interf == NULL)
 	{
 	    screen("ERROR in regrid_front_and_wave(), "
@@ -610,7 +609,6 @@ EXPORT	bool regrid_front_and_wave(
 	    free_front(tempfront);
 	    return NO;
 	}
-
 	set_topological_grid(tempfront->interf,tgr);
 	set_computational_grid(tempfront->interf,fgr);
 	interpolate_intfc_states(tempfront->interf) = YES;
@@ -625,13 +623,17 @@ EXPORT	bool regrid_front_and_wave(
 	    return NO;
 	}
 
+	//assign_wave_parameters(&Tempwave,wave);
+	//Tempwave.rect_grid = fgr;
+
         Tempwave = copy_wave(wave);
         clear_wave_pointers(Tempwave);
         assign_wave_parameters(Tempwave,wave);
         Tempwave->rect_grid = fgr;
 
 	start_clock("init_hyp_solution");
-	if (init_hyp_solution_function(Tempwave,tempfront) != GOOD_STEP)
+	//if (init_hyp_solution_function(&Tempwave,tempfront) != GOOD_STEP)
+        if (init_hyp_solution_function(Tempwave,tempfront) != GOOD_STEP)
 	{
 	    screen("ERROR in regrid_front_and_wave(), "
 	           "init_hyp_solution_function() failed\n");
@@ -649,24 +651,27 @@ EXPORT	bool regrid_front_and_wave(
 	    	for (ix = 0; ix < xmax; ix++) 
 	    	{
 	    	    icoords[0] = ix;
-	    	    coords = Rect_coords(icoords,Tempwave);
-	    	    comp = Rect_comp(icoords,Tempwave);
-	    	    state = Rect_state(icoords,Tempwave);
+	    	    coords = Rect_coords(icoords,&Tempwave);
+	    	    comp = Rect_comp(icoords,&Tempwave);
+	    	    state = Rect_state(icoords,&Tempwave);
 	    	    hyp_solution(coords,comp,NULL,UNKNOWN_SIDE,
 				 front,wave,state,NULL);
 	    	}
 	    }
 	}
 
-	*sav_gr = *fgr; /* Copy new grid info to original rect grid */
-	assign_wave_pointers(wave,Tempwave);
+	*sav_gr = *fgr; // Copy new grid info to original rect grid 
+	//assign_wave_pointers(wave,&Tempwave);
+        assign_wave_pointers(wave,Tempwave);
 	assign_interface_and_free_front(front,tempfront);
 	interpolate_intfc_states(front->interf) = sav_interp;
 
-	/* Reset rect grid to original structures */
+	// Reset rect grid to original structures 
 
 	front->rect_grid = wave->rect_grid = sav_gr;
 	set_computational_grid(front->interf,front->rect_grid);
+
+        start_clock("regrid_front_and_wave scatter_states");
 
         iperm = set_iperm(front->step,fgr->dim);
         for (i = 0; i < fgr->dim; i++)
@@ -678,9 +683,133 @@ EXPORT	bool regrid_front_and_wave(
             }
         }
 
-	return YES;
-}		/*end regrid_front_and_wave*/
+        stop_clock("regrid_front_and_wave scatter_states");
 
+	return YES;
+}		//end regrid_front_and_wave
+*/
+
+/*ARGSUSED*/
+EXPORT  bool regrid_front_and_wave(
+        Front           *front,
+        Wave            *wave,
+        RECT_GRID       *fgr,
+        RECT_GRID       *tgr,
+        bool            restart_init)
+{
+        COMPONENT       comp;
+        Front           *tempfront;
+        Locstate        state;
+        RECT_GRID       *sav_gr = front->rect_grid;
+//      Wave            Tempwave;
+        Wave            *Tempwave;
+        float           *coords;
+        bool            sav_interp = interpolate_intfc_states(front->interf);
+        int             icoords[3];
+        int             ix, xmax = fgr->gmax[0];
+        float           dt_frac = 1.0;
+        int             iy, ymax = (fgr->dim > 1) ? fgr->gmax[1] : 1;
+        int             iz, zmax = (fgr->dim == 3) ? fgr->gmax[2] : 1;
+        int     i,*iperm; /* permutation of {0,...,dim-1} */
+
+        tempfront = copy_front(front);
+        tempfront->rect_grid = fgr;
+        set_size_of_intfc_state(front->sizest);
+        set_copy_intfc_states(YES);
+        set_add_to_correspond_list(YES);
+        tempfront->interf = copy_interface(front->interf);
+
+        if (tempfront->interf == NULL)
+        {
+            screen("ERROR in regrid_front_and_wave(), "
+                   "unable to copy interface\n");
+            free_front(tempfront);
+            return NO;
+        }
+        set_topological_grid(tempfront->interf,tgr);
+        set_computational_grid(tempfront->interf,fgr);
+        interpolate_intfc_states(tempfront->interf) = YES;
+
+        Redistribution_count(tempfront) = 0;
+        tempfront->dt_frac = &dt_frac;
+//      *tempfront->dt_frac = min(dt_frac,*front->dt_frac);
+
+        if (redistribute(tempfront,YES,restart_init) != GOOD_REDISTRIBUTION)
+        {
+            screen("ERROR in regrid_front_and_wave(), "
+                   "redistribute() failed\n");
+            free_front(tempfront);
+            return NO;
+        }
+
+//      assign_wave_parameters(&Tempwave,wave);
+//      Tempwave.rect_grid = fgr;
+
+// Tulin regrid
+        Tempwave = copy_wave(wave);
+        clear_wave_pointers(Tempwave);
+        assign_wave_parameters(Tempwave,wave);
+        Tempwave->rect_grid = fgr;
+// Tulin regrid
+        start_clock("init_hyp_solution");
+        //if (init_hyp_solution_function(&Tempwave,tempfront) != GOOD_STEP)
+        if (init_hyp_solution_function(Tempwave,tempfront) != GOOD_STEP)
+        {
+            screen("ERROR in regrid_front_and_wave(), "
+                   "init_hyp_solution_function() failed\n");
+            free_front(tempfront);
+            return NO;
+        }
+        stop_clock("init_hyp_solution");
+
+        for (iz = 0; iz < zmax; iz++)
+        {
+            icoords[2] = iz;
+            for (iy = 0; iy < ymax; iy++)
+            {
+                icoords[1] = iy;
+                for (ix = 0; ix < xmax; ix++)
+                {
+                    icoords[0] = ix;
+                    coords = Rect_coords(icoords,Tempwave);
+                    comp = Rect_comp(icoords,Tempwave);
+                    state = Rect_state(icoords,Tempwave);
+                    hyp_solution(coords,comp,NULL,UNKNOWN_SIDE,
+                                 front,wave,state,NULL);
+                }
+            }
+        }
+
+        *sav_gr = *fgr; /* Copy new grid info to original rect grid */
+        assign_wave_pointers(wave,Tempwave);
+//      assign_wave_pointers(wave,&Tempwave);
+//      wave = copy_wave(Tempwave);;
+
+        assign_interface_and_free_front(front,tempfront);
+        interpolate_intfc_states(front->interf) = sav_interp;
+
+        /* Reset rect grid to original structures */
+
+        front->rect_grid = wave->rect_grid = sav_gr;
+        set_computational_grid(front->interf,front->rect_grid);
+
+        start_clock("regrid_front_and_wave scatter_states");
+
+        iperm = set_iperm(front->step,fgr->dim);
+        for (i = 0; i < fgr->dim; i++)
+        {
+            if (!scatter_states(wave,front,iperm,i))
+            {
+                screen("scatter_states() failed in direction\n",i);
+                clean_up(ERROR);
+            }
+        }
+
+        stop_clock("regrid_front_and_wave scatter_states");
+
+
+        return YES;
+}               /*end regrid_front_and_wave*/
 
 #define		MAX_MERGE_COMP		20
 

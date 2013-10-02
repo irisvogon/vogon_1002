@@ -63,11 +63,6 @@ LOCAL	void	usage(const char*);
 
 LOCAL	char	s[Gets_BUF_SIZE];	/*Scratch array for line input*/
 
-//xiaoxue
-
-void printf_rect_comp(CHART   *chart);
-int flowin_comp_func_interior(float *coords);
-
 EXPORT	void	set_driver_hooks(
 	INIT_DATA	*init,
 	INIT_PHYSICS	*ip)
@@ -280,18 +275,10 @@ LOCAL	void	set_up_cauchy_data(
 
 		/* Initialize Front Structure */
 	init_front(init,front);
-
-
-        //xiaoxe_comp
-//        printf_rect_comp(ip->root);
-
+	
 		/* Perform Problem-Dependent Initializations */
 	if (ip->init_interface)
 	    (*ip->init_interface)(init,ip);
-
-        //xiaoxe_comp
-  //      printf_rect_comp(ip->root);
-
 	
 	//DEBUG_TMP  null_sides_are_consistent();
 	//DEBUG_TMP check_print_intfc("After init interface", "init_jet", 'f', 
@@ -314,24 +301,11 @@ LOCAL	void	set_up_cauchy_data(
 	    restart_io_type(init) = NULL;
 	}
 
-                //xiaoxe_comp
- //       printf_rect_comp(ip->root);
-
-
 		/* Redistribute the initial front */
 
 	initial_front_redistribute(front,restart_io_type(init));
-
-                //xiaoxe_comp
- //       printf_rect_comp(ip->root);
-
-
 	interpolate_intfc_states(front->interf) = YES;
-
-                //xiaoxe_comp
-//        printf_rect_comp(ip->root);
-
-
+	
 	//print_rectangular_grid(front->rect_grid);
 	null_sides_are_consistent();
 	check_print_intfc("After init redist", "init_redist", 'f', 
@@ -345,11 +319,10 @@ LOCAL	void	set_up_cauchy_data(
 		/* Initialize State Variables */
 
 	interface_reconstructed(front->interf) = NO;
+	//print_interface(front->interf);
 
 	init_states(init,ip,ip->root,prt->restart_soln,restart);
-
-
-
+	
 	//test_pert_vel();
 	//generate_pert_vel();
 	//clean_up(0);
@@ -803,10 +776,6 @@ LOCAL void init_states(
 
 	if (ip->init_cauchy_data_pointers != NULL)
 	    (*ip->init_cauchy_data_pointers)(ip,got_intfc_from_file);
-   
-        //break;
-        //xiaoxue
- //       printf_rect_comp(chart);
 
 	dim = front->rect_grid->dim;
 	if (got_intfc_from_file == YES)
@@ -824,6 +793,15 @@ LOCAL void init_states(
 		    clean_up(ERROR);
 	        }
 	    }
+
+	    /* Use restart grids for initializing front and wave */
+
+	    //DEBUG_TMP printf("#tst res grid\n");
+	    //DEBUG_TMP print_rectangular_grid(rs_fgr);
+	    //DEBUG_TMP print_rectangular_grid(rs_tgr);
+	    //DEBUG_TMP printf("#tst org grid\n");
+	    //DEBUG_TMP print_rectangular_grid(&fgr);
+	    //DEBUG_TMP print_rectangular_grid(&tgr);
 
 	    copy_rect_grid(front->rect_grid,rs_fgr);
 	    set_topological_grid(front->interf,rs_tgr);
@@ -873,13 +851,11 @@ LOCAL void init_states(
 	}
 	else
 	{
-
 	    init_front_states(front,init,ip->intfc_initializer);
 
 	    /* parallel part for front */
 	
 	    clip_front_to_subdomain(front);
-        //xiaoxue
 	
 	    //DEBUG_TMP check_print_intfc("After clip_front_to_subdomain in init_states", 
 	    		//DEBUG_TMP "init_st",'g',front->interf,0,-1,NO);
@@ -889,9 +865,9 @@ LOCAL void init_states(
             if(chart->overparam != NULL)
                 overture_init_amr(chart);
 #endif /* if defined(USE_OVERTURE) */
- 
+	    
 	    init_interior_states(wave,front,init,ip->initializer);
-	           //xiaoxue
+
             if(ip->stratify_density_for_gravity)
                 while((*ip->stratify_density_for_gravity)())
                 {
@@ -948,7 +924,6 @@ LOCAL void init_states(
 	    	copy_rect_grid(front->rect_grid,&fgr);
 	    	set_topological_grid(front->interf,&tgr);
 	    }
-
 	    for (var = 0; var < n_restart_vars; ++var)
 	    	free_input_soln(restart_soln[var]);
 
@@ -1117,7 +1092,6 @@ LOCAL	void init_restart_interior_states(
 		        set_icoords_index(0,ix,Xmax)
 		        state = Rect_state(icoords,wave);
 		        comp = Rect_comp(icoords,wave);
-                        printf("icoordsx = [%d %d %d], comp = %d\n", icoords[0], icoords[1], icoords[2], comp);
 		        (*ip->restart_initializer)(abs_icoords,n_vars,comp,
 						   restart_soln,state,init);
 		    }
@@ -1922,7 +1896,7 @@ LOCAL	void init_interior_states(
 	    {
 		imin[i] = 0;
 		imax[i] = rgr->gmax[i];
-	
+		
 		if(rect_boundary_type(front->interf,i,0) == OPEN_BOUNDARY)
 		    imin[i] = -rgr->lbuf[i];
 		if(rect_boundary_type(front->interf,i,1) == OPEN_BOUNDARY)
@@ -1932,33 +1906,18 @@ LOCAL	void init_interior_states(
 	    for (iz = imin[2]; iz < imax[2]; ++iz)
 	    {
 	    	icoords[2] = iz;
-                
-/*	    	for (iy = imin[1]; iy < imax[1]; ++iy)
+	    	for (iy = imin[1]; iy < imax[1]; ++iy)
 	    	{
 	    	    icoords[1] = iy;
 	    	    for (ix = imin[0]; ix < imax[0]; ++ix)
 	    	    {
 	    	    	icoords[0] = ix;
-*/
-	    	//xiaoxue
-                for (ix = imin[0]; ix < imax[0]; ++ix)
-	    	{
-	    	    icoords[0] = ix;
-	    	    for (iy = imin[1]; iy < imax[1]; ++iy)
-	    	    {
-	    	    	icoords[1] = iy;
-                        
-                        coords = Rect_coords(icoords,wave);
-                      //xiaoxue
-                      Rect_comp(icoords,wave) = flowin_comp_func_interior(coords);
-
+	    	    	coords = Rect_coords(icoords,wave);
 	    	    	comp = Rect_comp(icoords,wave);
 	    	    	state = Rect_state(icoords,wave);
-
-	//    	         printf("coords = [%f %f %f] comp = %d\n", coords[0], coords[1], coords[2], comp);
-
+	    	    	
 			(*initializer)(coords,comp,state,front->interf,init);
-		        	
+			
 			if(debugging("riinit"))
 			{
 			    RI_initializer(state, coords, comp);
@@ -2260,85 +2219,3 @@ EXPORT	void d_set_interface_hooks(
 {
 	h_set_interface_hooks(dim,init);
 }		/*end d_set_interface_hooks*/
-
-void printf_rect_comp(CHART   *chart)
-{
-        printf("xiaoxue: enter printf_rect_comp\n");
- 	COMPONENT	comp;
-	Locstate	state;
-	float		*coords;
-	int		icoords[MAXD];        
-	Wave		*wave = chart->wave;        
-   	int		dim = wave->rect_grid->dim;
-	int		status;
-  	int		ix, iy, iz, i;
-	int		imax[3], imin[3];
-	RECT_GRID	*rgr = wave->rect_grid;
-	Front		*front = chart->front;
-
-	    for(i=0; i<3; i++)
-	    {
-		imin[i] = 0;
-		imax[i] = rgr->gmax[i];
-	
-		if(rect_boundary_type(front->interf,i,0) == OPEN_BOUNDARY)
-		    imin[i] = -rgr->lbuf[i];
-		if(rect_boundary_type(front->interf,i,1) == OPEN_BOUNDARY)
-		    imax[i] = rgr->gmax[i] + rgr->ubuf[i];
-	    }
-	    
-	    for (iz = imin[2]; iz < imax[2]; ++iz)
-	    {
-	    	icoords[2] = iz;
-                for (ix = imin[0]; ix < imax[0]; ++ix)
-	    	{
-	    	    icoords[0] = ix;
-	    	    for (iy = imin[1]; iy < imax[1]; ++iy)
-	    	    {
-	    	    	icoords[1] = iy;
-    //                    if( Rect_coords(icoords,wave)!= NULL && Rect_comp(icoords,wave) != NULL)
-                        {
-                        coords = Rect_coords(icoords,wave);
-	    	    	comp = Rect_comp(icoords,wave);
-	    	    	state = Rect_state(icoords,wave);
-		        printf("coords = [%f %f %f] comp = %d\n", coords[0], coords[1], coords[2], comp);
-                        }
-		    }
-	    	}
-	    }
-   
-}
-
-int flowin_comp_func_interior(float *coords)
-{
-        float wall;
-   	if(coords[2] > 4.0)
-	    return  1;
-	
-	//xiaoxue
-	if(coords[0] < -7.06) 
-	    return 7;
-      
-        if(coords[1] < 0.0 || coords[1] > 3.75) return 1;
-	
-        if(coords[2] > 3.9 && coords[2] <= 4.0)
-	{
-	    if(sqr(coords[0]) + sqr(coords[1]) < 0.099*0.099)
-	    	return 3;
-	}
-
-	/* Scranjet configuration */
-
-	if(coords[0] > -7 && coords[0] <= -7+0.8/tan(3.1415926*10/180))
-	    wall = 1.5 +0.1+(coords[0]+7)*tan(3.1415926*10/180);
-	if(coords[0] > -7+0.8/tan(3.1415926*10/180))
-	    wall = 1.5+0.1+0.8;
-        else if(coords[0] < -7)
-            wall = 1.6;
-	
-	if(coords[2] < 4.0 -0.1 && coords[2] > wall)
-	    return 3;
-
-        return 1;
- 
-}

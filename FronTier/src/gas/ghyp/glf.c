@@ -522,36 +522,7 @@ EXPORT void LFoblique(
                     pdens(ans)[i] = pdens(ans)[i]/sum*Dens(ans);
             }
         }
-
-        //xiaoxue
-   	Locstate sl = NULL;
-    	if ( sl == NULL )  g_alloc_state(&sl, fr->sizest);
-      	set_type_of_state(sl,TGAS_STATE);
-      	Press(sl) = 12.5;
-      	Dens(sl) = 12.3e-4;
-      	Vel(sl)[0] = 0.0;
-      	Vel(sl)[1] = 0.0;
-      	Vel(sl)[2] = -123.0;
-      	for(i = 0; i < 10; i++)
-            pdens(sl)[i] = 0.0;
-      	pdens(sl)[4] = Dens(sl);
-      	set_state(sl, GAS_STATE, sl);
-
-        Dens(ans) = Dens(sl);
-                if(g_composition_type() == MULTI_COMP_NON_REACTIVE)
-                {
-                        for(i = 0; i < 10; i++)
-                        {
-                            pdens(ans)[i] = 0.0;
-                        }
-                }
-	    pdens(ans)[0] = Dens(ans);
-            Energy(ans) = Energy(sl);
-	    for (i = 0; i < dim; ++i)
-	        Mom(ans)[i] = 0;
-            
-
-/*	if (!check_gas("LFoblique",sts,ans,sten,YES,fr))
+	if (!check_gas("LFoblique",sts,ans,sten,YES,fr))
 	{
 	    (void) printf("WARNING in LFoblique(), bad state detected\n");
 	    print_general_vector("point = ",Coords(p2),dim,"\n");
@@ -560,7 +531,7 @@ EXPORT void LFoblique(
 	    verbose_print_state("s2",s2);
 	    verbose_print_state("s3",s3);
 	    verbose_print_state("ans",ans);
-	}*/
+	}
 #endif /* defined(HYP_DBG) */
 #if !defined(UNRESTRICTED_THERMODYNAMICS)
 	Dens(ans) = max(Dens(ans),Vacuum_dens(ans));

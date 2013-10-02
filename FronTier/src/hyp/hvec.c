@@ -50,7 +50,7 @@ LOCAL void sweep_comp_segments(int,int*,float*,Wave*,Wave*,Front*,Front*,
 *	Perform a regular grid sweep first followed by a correction
 *	sweep at the irregular points.
 */
-void printf_state(int , Locstate);
+
 /*ARGSUSED*/
 EXPORT	void hyp_reg_vec(
 	int		swp_num,
@@ -83,7 +83,7 @@ EXPORT	void hyp_reg_vec(
 	debug_print("hyp_vec","Entered hyp_reg_vec(), dir = %d, swp_num = %d\n",
 	      idirs[0],swp_num);
 
-        set_sweep_limits(wv,swp_num,idirs,imin,imax);
+	set_sweep_limits(wv,swp_num,idirs,imin,imax);
 	//#bjet2
 	set_limits_for_open_bdry(wv,fr,swp_num,idirs,imin,imax);
 	
@@ -93,16 +93,8 @@ EXPORT	void hyp_reg_vec(
 	    i0min = max(i0min-nrad, -gr->lbuf[idirs[0]]);
 	if (gr->ubuf[idirs[0]] > 0)
 	    i0max = min(i0max+nrad, gr->gmax[idirs[0]]+gr->ubuf[idirs[0]]);
-        
 
-        /*     if(idirs[0] == 1) //ysweep
-        {
-              i0min = -nrad;
-              i0max = gr->gmax[idirs[0]] + nrad;
-        }*/
-        
 	vsize = i0max - i0min;
-        print_storage("before HYPERBOLICsweep","HYP_storage");
 
 	alloc_phys_vecs(wv,vsize);
 
@@ -143,20 +135,15 @@ EXPORT	void hyp_reg_vec(
 
 	    i1min = imin[1];	i1max = imax[1];
 	    i2min = imin[2];	i2max = imax[2];
+
 	    for( i2 = i2min;  i2 < i2max;  ++i2 )
 	    {
 	        icoords[idirs[2]] = i2;
 	   	for( i1 = i1min;  i1 < i1max;  ++i1 )
 	   	{
 	            icoords[idirs[1]] = i1;
-                    if(debugging("sweep_storage") && icoords[0] == 20)
-                    printf("icoords = [%d %d %d]\n", icoords[0], icoords[1], icoords[2]);
-                    if(icoords[0] == 20)
-                    print_storage("before sweep","sweep_storage");
 	            sweep_comp_segments(swp_num,iperm,dir,wv,newwv,
 		    	    fr,newfr,icoords,i0min,i0max,dt,dh,idirs);
-                    if(icoords[0] == 20)
-                    print_storage("after sweep","sweep_storage");
 	   	}
 	    }
 	    break;
@@ -168,7 +155,6 @@ EXPORT	void hyp_reg_vec(
 #endif /* defined(TIME_HVEC) */
 
 	free_phys_vecs(wv);
-        print_storage("after HYPERBOLICsweep","HYP_storage");        
 	if (debugging("hyp_vec"))
 	{
 	    (void) printf("New wave states after %d regular sweep:\n",idirs[0]);
@@ -179,41 +165,9 @@ EXPORT	void hyp_reg_vec(
 #if defined(TIME_HVEC)
 	start_clock("sweep on irregular grid");
 #endif /* defined(TIME_HVEC) */
-  /*      printf("after vector_FD sweep in dir %d!\n", idirs[0]);
 
-        for(int kk = imin[2]; kk < imax[2]; kk++)
-        {
-            for( int jj = imin[1] ; jj < imax[1]; jj++)
-            {
-                for(int ii = i0min; ii < i0max; ii++)
-                {
-                    icoordsx[idirs[0]] = ii;
-                    icoordsx[idirs[1]] = jj;
-                    icoordsx[idirs[2]] = kk;
-                    if(ii == 0 && jj == 7 && kk == 11){
-                    xstate = Rect_state(icoordsx,wv);
-                    coordsx = Rect_coords(icoordsx,wv);
-                    xstate2 = Rect_state(icoordsx,newwv);
-                    printf(" icoords = [%d %d %d] coords = [%f %f %f]\n", icoordsx[0], icoordsx[1],icoordsx[2], coordsx[0], coordsx[1], coordsx[2]);
-                    if(xstate!= NULL)
-                    {
-                        printf("wv:    ");
-                        printf_state(icoordsx[idirs[0]],xstate);
-                    }
-                    if(xstate2 != NULL)
-                    {
-                        printf("newwv: ");
-                        printf_state(icoordsx[idirs[0]],xstate2);
-                    }
-                    }
-                }
-            }
-        }
-*/
-        print_storage("before hyp_npt","HYP_storage");	
-        hyp_npt(swp_num,iperm,dh,dt,wv,newwv,fr,newfr,max_comp);
-        print_storage("after hyp_npt","HYP_storage");	
-        
+	hyp_npt(swp_num,iperm,dh,dt,wv,newwv,fr,newfr,max_comp);
+
 #if defined(TIME_HVEC)
 	stop_clock("sweep on irregular grid");
 #endif /* defined(TIME_HVEC) */
@@ -246,7 +200,7 @@ LOCAL void sweep_comp_segments(
 {
 	COMPONENT	comp;
 	int		seg_min,seg_max;
-        if(icoords[0] == 20) print_storage("before sweep_comp_seg","sweep_storage");
+
 	seg_min = i0min;
 	while (seg_min != i0max)
 	{
@@ -258,14 +212,9 @@ LOCAL void sweep_comp_segments(
 		if (comp != Rect_comp(icoords,wv))
 		    break;
 	    }
-           if(icoords[0] == 20) print_storage("before vec_solver","sweep_storage");
 
 	    vec_solver(swp_num,iperm,dir,wv,newwv,fr,newfr,
 	    		icoords,seg_min,seg_max,dt,dh);
-        if(icoords[0] == 20) print_storage("after vec_solver","sweep_storage");
-            
 	    seg_min = seg_max;
 	}
-        if(icoords[0] == 20) print_storage("after sweep_comp_seg","sweep_storage");
-        
 }	/* end sweep_comp_segment */

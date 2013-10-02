@@ -28,16 +28,7 @@
 
 #define  twothird  0.666666666666666666666667     /* value of (2.0/3.0) */
 #define  MAX_NCOMPS 10
-#define	  tan10			0.176327	
-#define	  cos10			0.984807
-#define	  sin10			0.173648	
-#define	  ramp_x0		 -7.0
-#define   ramp_x1 		( -7 + 0.8/tan10)
-#define   ramp_z0 		1.6
-#define   ramp_z1 		2.4
-#define   ywall0                0
-#define   ywall1                3.75
-#define   zwall                 3.9
+
 typedef struct {
         int             npts;  /* n point stencil, not used now */
         float           dt;
@@ -83,7 +74,7 @@ LOCAL void      mesh_avr(Wave*,float***,float***,int*, int*, int*);
 LOCAL void      mesh_avr_mc(Wave*,float****,float****,int*, int*, int*);
 LOCAL bool 	detect_shock(int*, float, float*, Pstencil*, Pstencil*, Wave*, Front*);
 LOCAL bool 	is_between( float, float, float);
-LOCAL int       Find_coords_location(float, float, float, float,float, float);
+
 /*
 *			parab_driver():
 */
@@ -108,8 +99,7 @@ EXPORT	int parab_driver(
 	debug_print("parab","Entered parab_driver()\n");
 
 	debug_front("front","in parabolic solver",front);
-	printf("pass debug_front\n");
-        if( debugging("parab_states") )
+	if( debugging("parab_states") )
 	{
 	    (void) printf("States before calling parab_solver:\n\n");
 	    (void) printf("Front\n");
@@ -127,10 +117,7 @@ EXPORT	int parab_driver(
 
 		/* Initialize Intermediate Storage for States */
 
-        printf("xiaoxue: before SGS\n");
         SGS(dt,front,wave);
-        printf("xiaoxue:pass SGS\n");
-        
         /*
         iperm = set_iperm(front->step,dim);
         for (i = 0; i < dim; i++)
@@ -157,6 +144,7 @@ EXPORT	int parab_driver(
 	start_clock("parab_solver");
 
         parab_npt(dt,front,wave,newwave);
+
 	start_clock("scatter_states");
 
 	iperm = set_iperm(front->step,dim);
@@ -548,324 +536,7 @@ LOCAL void fill_3d_27pt_Pstencil(
         icoords[1] = j;
         icoords[2] = k;
         cc = Rect_comp(icoords,wv);
-
-        int comp3d[3][3][3];
-        bool boundary = 0;
         for(kk = 0; kk < 3; kk++)
-        {
-            for(jj = 0; jj < 3; jj++)
-            {
-                for (ii = 0; ii < 3; ii++)
-                {
-		    ic[0] = i + ii - 1;
-                    ic[1] = j + jj - 1;
-                    ic[2] = k + kk - 1;
-
-                    nsten->icoords3d[ii][jj][kk][0] = ic[0];
-                    nsten->icoords3d[ii][jj][kk][1] = ic[1];
-                    nsten->icoords3d[ii][jj][kk][2] = ic[2];
-
-                    state = nsten->sts3d[ii][jj][kk];
-                    comp3d[ii][jj][kk] =  Rect_comp(nsten->icoords3d[ii][jj][kk],wv);
-                    if(comp3d[ii][jj][kk] == 3)
-                        ft_assign(state, Rect_state(ic,wv), sizest);
-                    else
-                        boundary = 1;
-                }
-            }  
-        }
-        
-        if(!boundary) return;
-        
-        //xiaoxue
-        float* coordsx;
-        coordsx = Rect_coords(icoords,wv);
-        int btype = 0;
-        btype = Find_coords_location(coordsx[0], coordsx[1], coordsx[2], rgr->h[0], rgr->h[1], rgr->h[2]);
-            
-        int inflow = btype/12;
-        if(inflow == 1)
-        {
-            for(jj = 0; jj < 3; jj++)
-                for(kk = 0; kk < 3; kk++)
-                {
-                        ft_assign(nsten->sts3d[0][jj][kk], nsten->sts3d[1][1][1], sizest);
-                }
-        }
-        //printf("assign state coordsx = [%f %f %f] btype = %d\n", coordsx[0], coordsx[1],coordsx[2], btype);
-        btype = btype%12;
-
-        if(btype == 2 || btype == 3)
-        {
-            int zdir = (btype%4 - 2)*2 - 1; 
-            kk = 1 + zdir;
-            for(ii = 0; ii < 3; ii++)
-                for(jj = 0; jj < 3; jj++)
-                {
-//                    Locstate ref = NULL;
-//                    g_alloc_state(&ref, nsten->fr->sizest);
-                    Locstate ref = nsten->sts3d[ii][jj][kk];
-                    set_type_of_state(ref,GAS_STATE);
-                    Locstate intState = nsten->sts3d[ii][jj][1]; 
-                    Dens(ref) = Dens(intState);
-                    if(((Gas *) (intState))->params == NULL) printf("intState is obstacel for btype = %d!\n",btype);
-                    Dens(ref) = Dens(intState);
-                    for(int l = 0;  l < 3; l++)
-                          Mom(ref)[l] = Mom(intState)[l];
-                    Mom(ref)[2] *= -1;
-                    Energy(ref) = Energy(intState);
-                    if(g_composition_type() == MULTI_COMP_NON_REACTIVE)
-                    {
-                        for(int l = 0; l < Params(intState)->n_comps; l++)
-                                  pdens(ref)[l] = pdens(intState)[l];
-                    }
-                    for(int l =0; l < 3; l++)
-                        Vel_Field(ref)[l] = Vel_Field(intState)[l];
-                    Set_params(ref, intState);
-//                    nsten->sts3d[ii][jj][kk] = ref;
-                }
-        }
-        else if(btype == 2 + 4 || btype == 3 + 4 || btype == 2 + 8 || btype == 3 + 8)
-        {
-            int zdir;
-            int ydir;
-            zdir = (btype%4 - 2)*2 - 1; //  xdir = 1 lowwall
-                                       //  xdir = -1 upwall
-            ydir = (btype/4 - 1)*2 - 1;
-
-            kk = 1 + zdir;
-            for(ii = 0; ii < 3; ii++)
-                for(jj = 0; jj < 3; jj++)
-                {
-                    if(jj != 1 + ydir)
-                    {
-//                        Locstate ref = NULL;
-//                        g_alloc_state(&ref, nsten->fr->sizest);
-                        Locstate ref = nsten->sts3d[ii][jj][kk];
-                        set_type_of_state(ref,GAS_STATE);
-                        Locstate intState = nsten->sts3d[ii][jj][1]; 
-                        Dens(ref) = Dens(intState);
-                        if(((Gas *) (intState))->params == NULL) 
-                            printf("intState is obstacel for btype = %d!\n",btype);
-                        Dens(ref) = Dens(intState);
-                        for(int l = 0;  l < 3; l++)
-                            Mom(ref)[l] = Mom(intState)[l];
-                        Mom(ref)[2] *= -1;
-                        Energy(ref) = Energy(intState);
-                        if(g_composition_type() == MULTI_COMP_NON_REACTIVE)
-                        {
-                              for(int l = 0; l < Params(intState)->n_comps; l++)
-                                  pdens(ref)[l] = pdens(intState)[l];
-                        }
-                        for(int l =0; l < 3; l++)
-                            Vel_Field(ref)[l] = Vel_Field(intState)[l];
-                        Set_params(ref, intState);
-//                        nsten->sts3d[ii][jj][kk] = ref;
-                    }
-                }
-
-            jj = 1 + ydir;
-            for(ii = 0; ii < 3; ii++)
-                for(kk = 0; kk < 3; kk++)
-                {
-                    if(kk != 1 + zdir)
-                    {
- //                       Locstate ref = NULL;
-//                        g_alloc_state(&ref, nsten->fr->sizest);
-                        Locstate ref = nsten->sts3d[ii][jj][kk];
-
-                        set_type_of_state(ref,GAS_STATE);
-                        Locstate intState = nsten->sts3d[ii][1][kk]; 
-                        Dens(ref) = Dens(intState);
-                        if(((Gas *) (intState))->params == NULL) 
-                            printf("intState is obstacel for btype = %d!\n",btype);
-                        Dens(ref) = Dens(intState);
-                        for(int l = 0;  l < 3; l++)
-                            Mom(ref)[l] = Mom(intState)[l];
-                        Mom(ref)[1] *= -1;
-                        Energy(ref) = Energy(intState);
-                        if(g_composition_type() == MULTI_COMP_NON_REACTIVE)
-                        {
-                              for(int l = 0; l < Params(intState)->n_comps; l++)
-                                  pdens(ref)[l] = pdens(intState)[l];
-                        }
-                        for(int l =0; l < 3; l++)
-                            Vel_Field(ref)[l] = Vel_Field(intState)[l];
-                        Set_params(ref, intState);
-                                           }
-                }
-
-            jj = 1 + ydir;
-            kk = 1 + zdir;
-            for(ii = 0; ii < 3; ii++)
-                {
-//                        Locstate ref = NULL;
-//                        g_alloc_state(&ref, nsten->fr->sizest);
-                        Locstate ref = nsten->sts3d[ii][jj][kk];
-                        set_type_of_state(ref,GAS_STATE);
-                        Locstate intState = nsten->sts3d[ii][1][1]; 
-                        Dens(ref) = Dens(intState);
-                        if(((Gas *) (intState))->params == NULL) 
-                            printf("intState is obstacel for btype = %d!\n",btype);
-                        Dens(ref) = Dens(intState);
-                        for(int l = 0;  l < 3; l++)
-                            Mom(ref)[l] = Mom(intState)[l];
-                        Mom(ref)[1] *= -1;
-                        Mom(ref)[2] *= -1;
-                        Energy(ref) = Energy(intState);
-                        if(g_composition_type() == MULTI_COMP_NON_REACTIVE)
-                        {
-                              for(int l = 0; l < Params(intState)->n_comps; l++)
-                                  pdens(ref)[l] = pdens(intState)[l];
-                        }
-                        for(int l =0; l < 3; l++)
-                            Vel_Field(ref)[l] = Vel_Field(intState)[l];
-                        Set_params(ref, intState);
-  //                      nsten->sts3d[ii][jj][kk] = ref;
-                }
-        }
-        else if(btype == 1)
-        {
-            for(ii = 0; ii < 3; ii++)
-                for(jj = 0; jj < 3; jj++)
-                {
-                    if(comp3d[ii][jj][1] != 3 )
-                        ft_assign(nsten->sts3d[ii][jj][1], nsten->sts3d[ii][jj][2], sizest);
-                }
-
-            for(ii = 0; ii < 3; ii++)
-                for(jj = 0; jj < 3; jj++)
-                {
-                    if(comp3d[ii][jj][0] != 3 )
-                        ft_assign(nsten->sts3d[ii][jj][0], nsten->sts3d[ii][jj][1], sizest);
-                }
-        }
-        else if(btype == 1 + 4 || btype == 1 + 8)//ramp
-        {
-            int ydir = (btype/4 - 1)*2 - 1;
-            for(ii = 0; ii < 3; ii++)
-                for(jj = 0; jj < 3; jj++)
-                {
-                    if(jj != 1 + ydir && comp3d[ii][jj][1] != 3 )
-                        ft_assign(nsten->sts3d[ii][jj][1], nsten->sts3d[ii][jj][2], sizest);
-                }
-
-            for(ii = 0; ii < 3; ii++)
-                for(jj = 0; jj < 3; jj++)
-                {
-                    if(jj != 1 + ydir && comp3d[ii][jj][0] != 3 )
-                        ft_assign(nsten->sts3d[ii][jj][0], nsten->sts3d[ii][jj][1], sizest);
-                }
-
-            jj = 1 + ydir;
-            for(ii = 0; ii < 3; ii++)
-                for(kk = 0; kk < 3; kk++)
-                {
-//                        Locstate ref = NULL;
-//                        g_alloc_state(&ref, nsten->fr->sizest);
-                        Locstate ref = nsten->sts3d[ii][jj][kk];
-                        set_type_of_state(ref,GAS_STATE);
-                        Locstate intState = nsten->sts3d[ii][1][kk]; 
-                        Dens(ref) = Dens(intState);
-                        if(((Gas *) (intState))->params == NULL)
-                            printf("intState is obstacel for btype = %d!\n",btype);
-                        Dens(ref) = Dens(intState);
-                        for(int l = 0;  l < 3; l++)
-                            Mom(ref)[l] = Mom(intState)[l];
-                        Mom(ref)[1] *= -1;
-                        Energy(ref) = Energy(intState);
-                        if(g_composition_type() == MULTI_COMP_NON_REACTIVE)
-                        {
-                              for(int l = 0; l < Params(intState)->n_comps; l++)
-                                  pdens(ref)[l] = pdens(intState)[l];
-                        }
-                        for(int l =0; l < 3; l++)
-                            Vel_Field(ref)[l] = Vel_Field(intState)[l];
-                        Set_params(ref, intState);
- //                       nsten->sts3d[ii][jj][kk] = ref;
-                }
-        }
-        else if(btype == 4 || btype == 8)
-        {
-           int ydir = (btype/4 - 1)*2 - 1;
-           jj = 1 + ydir;
-           for(ii = 0; ii < 3; ii++)
-               for( kk = 0; kk < 3; kk++)
-               {
-//                        Locstate ref = NULL;
-//                        g_alloc_state(&ref, nsten->fr->sizest);
-                        Locstate ref = nsten->sts3d[ii][jj][kk];
-                        set_type_of_state(ref,GAS_STATE);
-                        Locstate intState = nsten->sts3d[ii][1][kk]; 
-                        Dens(ref) = Dens(intState);
-                        if(((Gas *) (intState))->params == NULL) 
-                            printf("intState is obstacel for btype = %d!\n",btype);
-                        Dens(ref) = Dens(intState);
-                        for(int l = 0;  l < 3; l++)
-                            Mom(ref)[l] = Mom(intState)[l];
-                        Mom(ref)[1] *= -1;
-                        Energy(ref) = Energy(intState);
-                        if(g_composition_type() == MULTI_COMP_NON_REACTIVE)
-                        {
-                              for(int l = 0; l < Params(intState)->n_comps; l++)
-                                  pdens(ref)[l] = pdens(intState)[l];
-                        }
-                        for(int l =0; l < 3; l++)
-                            Vel_Field(ref)[l] = Vel_Field(intState)[l];
-                        Set_params(ref, intState);   
-//                        nsten->sts3d[ii][jj][kk] = ref;
-               }
-        }
-
-
-          for(kk = 0; kk < 3; kk++)
-          {
-            for(jj = 0; jj < 3; jj++)
-            {
-                for (ii = 0; ii < 3; ii++)
-                {
-                    if( nsten->sts3d[ii][jj][kk] == NULL || ((Gas *) (nsten->sts3d[ii][jj][kk]))->params == NULL )
-                    {
-                        printf("error in assign state coordsx = [%f %f %f] btype = %d\n", coordsx[0], coordsx[1],coordsx[2], btype);
-                        printf("btype = %d coords = [%f %f %f] icoords = [%d %d %d] [ii jj kk] = [%d %d %d]\n", btype, coordsx[0], coordsx[1], coordsx[2], icoords[0], icoords[1], icoords[2], ii, jj, kk);
-
-                    }
-    //                else
-     //                   printf("s[%d][%d][%d]: dens = %f vel = [%f %f %f] Energy = %f\n",ii,jj,kk,Dens(nsten->sts3d[ii][jj][kk]),Mom(nsten->sts3d[ii][jj][kk])[0]/Dens(nsten->sts3d[ii][jj][kk]), Mom(nsten->sts3d[ii][jj][kk])[1]/Dens(nsten->sts3d[ii][jj][kk]), Mom(nsten->sts3d[ii][jj][kk])[2]/Dens(nsten->sts3d[ii][jj][kk]), Energy(nsten->sts3d[ii][jj][kk]));
-                }
-            }
-          }
-
-
-        
-        /*
-       
-       
-        if(btype == 0)
-        {
-		    ic[0] = i + ii - 1;
-                    ic[1] = j + jj - 1;
-                    ic[2] = k + kk - 1;
-
-                    nsten->icoords3d[ii][jj][kk][0] = ic[0];
-                    nsten->icoords3d[ii][jj][kk][1] = ic[1];
-                    nsten->icoords3d[ii][jj][kk][2] = ic[2];
-
-                    state = nsten->sts3d[ii][jj][kk];
-                    cck =  Rect_comp(nsten->icoords3d[ii][jj][kk],wv);
-                    if(cck != 3) printf("error in assign state in gvisc.c\n");
-                    
-                    ft_assign(state, Rect_state(ic,wv), sizest);
-                }
-            }  
-          }
-        }
-        else
-        {
-            if(
-        }
-*/
-/*        for(kk = 0; kk < 3; kk++)
         {
             for(jj = 0; jj < 3; jj++)
             {
@@ -889,205 +560,48 @@ LOCAL void fill_3d_27pt_Pstencil(
 
                     state = nsten->sts3d[ii][jj][kk];
                     cck =  Rect_comp(nsten->icoords3d[ii][jj][kk],wv);
+		    //printf("cck = %d\n",cck);
                     if (is_excluded_comp(cck,front->interf))
                     {
                         coords[0] = cell_center(nsten->icoords3d[ii][jj][kk][0],0,rgr);
                         coords[1] = cell_center(nsten->icoords3d[ii][jj][kk][1],1,rgr);
                         coords[2] = cell_center(nsten->icoords3d[ii][jj][kk][2],2,rgr);
                         
-              //          printf("#crds\n");
-              //          print_general_vector("coords", coords, 3, "\n");
-              //          print_int_vector("icrds", nsten->icoords3d[ii][jj][kk], 3, "\n");
-              //          print_int_vector("cen", icoords, 3, "\n");
-                        
-                        if( coords[1] < 0.0 || coords[1] > 3.5)
-                        {
-                            int wallIndx;
-                            int icoordsy[3];
-                            icoordsy[0] = ic[0];
-                            icoordsy[1] = ic[1];
-                            icoordsy[2] = ic[2];
-                            bool refpoint = 0;
-                            if(coords[1] < 0.0)
-                            {
-                                for(wallIndx = ic[1]; wallIndx < rgr->GU[1]; wallIndx++)
-                                {
-                                    icoordsy[1] = wallIndx;
-                                    if(Rect_comp(icoordsy, wv) == 3)
-                                    {
-                                        refpoint = 1;
-                                        break;
-                                    }
-                                }
-                                icoordsy[1] = 2*wallIndx - 1 - ic[1]; 
-                            }
-                            else 
-                            {
-                                for(wallIndx = ic[1]; wallIndx > rgr->GU[1]; wallIndx--)
-                                {
-                                    icoordsy[1] = wallIndx;
-                                    if(Rect_comp(icoordsy, wv) == 3)
-                                    {
-                                        refpoint = 1;
-                                        break;
-                                    }
-                                }
-                                icoordsy[1] = 2*wallIndx + 1 - ic[1]; 
-                            }
-                            Locstate intState = NULL;
-                            if(refpoint)
-                            {
-                                intState = Rect_state(icoordsy,wv);    
-                            }
-                            else
-                            {
-                                Locstate lstate;
-                                int licoords[3];
-                                for(int ix = i - 1; ix < i + 2; ix++){
-                                    licoords[0] = ix;
-                                    for(int iy = j - 1; iy < j + 2; iy ++){
-                                        licoords[1] = iy;
-                                        for(int iz = k - 1; iz < k + 2; iz++)
-                                        {
-                                            licoords[2] = iz;
-                                            lstate = Rect_state(licoords,wv);
-                                            if(!is_obstacle_state(lstate))
-                                            {
-                                                intState = lstate;
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                            float* coordsy = Rect_coords(icoordsy,wv);
-                            Locstate ref = NULL;
-                            g_alloc_state(&ref, nsten->fr->sizest);
-                            set_type_of_state(ref,GAS_STATE);
-                            if(((Gas *) (intState))->params == NULL) printf("intState is obstacel!\n");
-                            Dens(ref) = Dens(intState);
-                            for(int l = 0;  l < 3; l++)
-                                  Mom(ref)[l] = Mom(intState)[l];
-                            Mom(ref)[1] *= -1;
-                            Energy(ref) = Energy(intState);
-                            if(g_composition_type() == MULTI_COMP_NON_REACTIVE)
-                            {
-                                  for(int l = 0; l < Params(intState)->n_comps; l++)
-                                        pdens(ref)[l] = pdens(intState)[l];
-                            }
-                            for(int l =0; l < 3; l++)
-	                          Vel_Field(ref)[l] = Vel_Field(intState)[l];
-                            Set_params(ref, intState);
-                        }
-                        else if(coords[2] < 2.4 || coords[2] > 3.9)
-                        {
-                            int wallIndx;
-                            int icoordsy[3];
-                            icoordsy[0] = ic[0];
-                            icoordsy[1] = ic[1];
-                            icoordsy[2] = ic[2];
-                            bool refpoint = 0;
-                            if(coords[2] < 2.4)
-                            {
-                                for(wallIndx = ic[2]; wallIndx < rgr->GU[2]; wallIndx++)
-                                {
-                                    icoordsy[2] = wallIndx;
-                                    if(Rect_comp(icoordsy, wv) == 3)
-                                    {
-                                        refpoint = 1;
-                                        break;
-                                    }
-                                }
-                                icoordsy[2] = 2*wallIndx - 1 - ic[2]; 
-                            }
-                            else 
-                            {
-                                for(wallIndx = ic[2]; wallIndx > rgr->GU[1]; wallIndx--)
-                                {
-                                    icoordsy[2] = wallIndx;
-                                    if(Rect_comp(icoordsy, wv) == 3)
-                                    {
-                                        refpoint = 1;
-                                        break;
-                                    }
-                                }
-                                icoordsy[2] = 2*wallIndx + 1 - ic[2]; 
-                            }
-                            Locstate intState = NULL;
-                            if(refpoint)
-                            {
-                                intState = Rect_state(icoordsy,wv);    
-                            }
-                            else
-                            {
-                                Locstate lstate;
-                                int licoords[3];
-                                for(int ix = i - 1; ix < i + 2; ix++){
-                                    licoords[0] = ix;
-                                    for(int iy = j - 1; iy < j + 2; iy ++){
-                                        licoords[1] = iy;
-                                        for(int iz = k - 1; iz < k + 2; iz++)
-                                        {
-                                            licoords[2] = iz;
-                                            lstate = Rect_state(licoords,wv);
-                                            if(!is_obstacle_state(lstate))
-                                            {
-                                                intState = lstate;
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                            float* coordsy = Rect_coords(icoordsy,wv);
-                            Locstate ref = NULL;
-                            g_alloc_state(&ref, nsten->fr->sizest);
-                            set_type_of_state(ref,GAS_STATE);
-                            if(((Gas *) (intState))->params == NULL) printf("intState is obstacel!\n");
-                            Dens(ref) = Dens(intState);
-                            for(int l = 0;  l < 3; l++)
-                                  Mom(ref)[l] = Mom(intState)[l];
-                            Mom(ref)[1] *= -1;
-                            Energy(ref) = Energy(intState);
-                            if(g_composition_type() == MULTI_COMP_NON_REACTIVE)
-                            {
-                                  for(int l = 0; l < Params(intState)->n_comps; l++)
-                                        pdens(ref)[l] = pdens(intState)[l];
-                            }
-                            for(int l =0; l < 3; l++)
-	                          Vel_Field(ref)[l] = Vel_Field(intState)[l];
-                            Set_params(ref, intState);
-                        }
-                        else
-                        {
-                            if (!nearest_interface_point(coords,cc,front->interf,
+                        //printf("#crds\n");
+                        //print_general_vector("coords", coords, 3, "\n");
+                        //print_int_vector("icrds", nsten->icoords3d[ii][jj][kk], 3, "\n");
+                        //print_int_vector("cen", icoords, 3, "\n");
+	
+			if (!nearest_interface_point(coords,cc,front->interf,
                                                 NO_SUBDOMAIN,NULL,coords_on,
                                                 t,&hse,&hs))
-                          {
+                        {
                             screen("ERROR in fill_3d_27pt_Pstencil(), "
                                "can't find nearest interface point\n");
                             clear_state(front->interf,state,front->sizest);
                             clean_up(ERROR);
-                          }
+                        }
 		
-		  	  //fprint_wave_type(stdout, "wt", wave_type(hs), "\n", front->interf);
+			//fprint_wave_type(stdout, "wt", wave_type(hs), "\n", front->interf);
 
-                          switch (wave_type(hs))
-                          {
-                            case CONTACT:
+                        switch (wave_type(hs))
+                        {
+                        case CONTACT:
                             hyp_solution(coords,cc,hs,UNKNOWN_SIDE,front,
                                         wv,state,NULL);
                             break;
-                            case NEUMANN_BOUNDARY:
+                        case NEUMANN_BOUNDARY:
                             g_neumann_bdry_state_beta(coords,cc,0,hs,front,
                                         (POINTER)wv,state);
                             break;
-                            case DIRICHLET_BOUNDARY:    // far field conditions 
-                            case FLOW_BOUNDARY:    // far field conditions 
+                        case DIRICHLET_BOUNDARY:    /* far field conditions */
+                        case FLOW_BOUNDARY:    /* far field conditions */
                             evaluate_dirichlet_boundary_state(coords,hs,
                                             front,wv,state);
                             break;
-                            case PASSIVE_BOUNDARY:
-                            case SUBDOMAIN_BOUNDARY:
-                            default:
+                        case PASSIVE_BOUNDARY:
+                        case SUBDOMAIN_BOUNDARY:
+                        default:
                             screen("ERROR in fill_3d_27pt_stencil_new(), "
                                "unknown boundary type\n");
                                 screen("\twave type = %s\n"
@@ -1096,18 +610,15 @@ LOCAL void fill_3d_27pt_Pstencil(
                             screen("\n\tcoord = (%g,%g,%g)\n",coords[0],coords[1],coords[2]);
                             clean_up(ERROR);
                             break;
-                          }
                         }
                     }
                     else
                     {
                         ft_assign(state, Rect_state(ic,wv), sizest);
- //                       printf("[%d %d %d] rho = %f vel = [%f %f %f] Energy= %f\n pdens = [%f %f %f %f]\n",ii,jj,kk, Dens(state), Mom(state)[0]/Dens(state), Mom(state)[1]/Dens(state),Mom(state)[2]/Dens(state),Energy(state), pdens(state)[0],pdens(state)[1],pdens(state)[2],pdens(state)[3] );
-
                     }
                 }
             }
-	}*/
+	}
 }       /* end fill_3d_27pt_stencil_new */
 
 LOCAL  void  g_ns_soln(
@@ -1134,6 +645,7 @@ LOCAL  void  g_ns_soln(
 	float		mu, d, kappa, temp;
 	Gas_param       **params;
 	bool            subgrid;
+
 
 /*
  *      The state array sts3d[3][3][3] is a moving cube in the general three
@@ -1163,6 +675,9 @@ LOCAL  void  g_ns_soln(
         subgrid_vis = params[0]->avisc.subgrid_vis;
         subgrid_md = params[0]->avisc.subgrid_md;
         subgrid_con = params[0]->avisc.subgrid_con;
+
+	//TMP_XY_weno
+//	printf("XY:mu = %e\td = %e\tkappa = %e\n", mu, d, kappa);
 
 	if( fabs(mu) < 1e-10)
 	    viscosity = NO;
@@ -1196,7 +711,7 @@ LOCAL  void  g_ns_soln(
 	}
 	coords = Rect_coords(icoords,nsten->wave);
 	//set_max_viscosity(mu/density(ans),ans,coords,nsten->wave);
-   //     printf("parab_npt coords = [%f %f %f]\n", coords[0], coords[1], coords[2]);	
+	
 	switch (dim)
         {
 #if defined ONED
@@ -1419,6 +934,7 @@ LOCAL  void  g_ns_soln(
                 (void) printf("uxx = %lf, uyy = %lf, vxx = %lf, vyy = %lf\n",
 				    uxx,uyy,vxx,vyy); 
 	    }
+
             if (viscosity == YES)
             {
                 if (!use_stokes_vis)
@@ -1554,12 +1070,12 @@ LOCAL  void  g_ns_soln(
 	     bool subgrid_vis2[2];
 	     subgrid_vis2[0] = params[0]->avisc.subgrid_vis;
 	     subgrid_vis2[1] = params[0]->avisc.subgrid_vis;
-	     for (i = 0; i < 2; ++i)
+/*	     for (i = 0; i < 2; ++i)
 		 if(Lflag(ans)[i+2] == YES)
 		     subgrid_vis2[i] = NO;
 	     if(Lflag(ans)[1] == YES)
 		 subgrid_con = NO;
-
+*/
 	     if (subgrid_vis2[0] == YES)
 	     {
 		 Mom(ans)[0] -= dt*taux;
@@ -1589,9 +1105,9 @@ LOCAL  void  g_ns_soln(
 		{
 		    int n_comps = Params(ans)->n_comps;
 		    bool subgrid_md2[MAX_NCOMPS] = {params[0]->avisc.subgrid_md};
-		    for (i = 0; i < n_comps; ++i)
+/*		    for (i = 0; i < n_comps; ++i)
 			if (Lflag(ans)[4+i] == YES)
-			    subgrid_md2[i] = NO;
+			    subgrid_md2[i] = NO;*/
 		    for (i = 0; i < n_comps; ++i)
 			if(subgrid_md2[i] == YES)
 			    pdens(ans)[i] -= dt*qp[i];
@@ -1748,7 +1264,6 @@ LOCAL  void  g_ns_soln(
  	    
 	    wzx = ((vel(2,nsten->sts3d[2][1][2]) - vel(2,nsten->sts3d[0][1][2])) 
 	         -(vel(2,nsten->sts3d[2][1][0]) - vel(2,nsten->sts3d[0][1][0])))/(4.0*dh[0]*dh[2]);
-//printf("before parb_npt: rho = %f vel = [%f %f %f] Energy= %f pdens = [%f %f %f %f]\n", Dens(ans), Mom(ans)[0]/Dens(ans), Mom(ans)[1]/Dens(ans),Mom(ans)[2]/Dens(ans),Energy(ans), pdens(ans)[0],pdens(ans)[1],pdens(ans)[2],pdens(ans)[3] );
 
             if (viscosity == YES)
             {
@@ -1787,6 +1302,7 @@ LOCAL  void  g_ns_soln(
             }
             if (thermal_conduction == YES)
                 Energy(ans) += dt*(kappa*Fourier_heat_conduction(nsten));
+
             if (mass_diffusion == YES)
 	    {
                 //float     hx,hx1,hx3,hy1,hy3,hz1,hz3;
@@ -1806,7 +1322,6 @@ LOCAL  void  g_ns_soln(
                 float     z2 = Dens(nsten->sts3d[1][1][1]);
                 float     z3 = Dens(nsten->sts3d[1][1][0]);
 
-//                printf("dens = [%f %f %f] [%f %f %f] [%f %f %f]\n", x1,x2,x3, y1, y2, y3, z1, z2, z3);
                 hdiffu_term_x = 0;
                 hdiffu_term_y = 0;
                 hdiffu_term_z = 0;
@@ -1830,7 +1345,6 @@ LOCAL  void  g_ns_soln(
                             zf2[i] = pdens(nsten->sts3d[1][1][1])[i]/z2;
                             zf3[i] = pdens(nsten->sts3d[1][1][0])[i]/z3;
 
-  //                          printf("xf = [%f %f %f] yf = [%f %f %f] zf = [%f %f %f]\n", xf1[i],xf2[i],xf3[i], yf1[i],yf2[i],yf3[i],zf1[i],zf2[i],zf3[i]);
                             h[i] = specific_enthalpy_species(nsten->sts3d[1][1][1],i);
                             hx1[i] = specific_enthalpy_species(nsten->sts3d[2][1][1],i);
                             hx3[i] = specific_enthalpy_species(nsten->sts3d[0][1][1],i);
@@ -1838,8 +1352,7 @@ LOCAL  void  g_ns_soln(
                             hy3[i] = specific_enthalpy_species(nsten->sts3d[1][0][1],i);       
                             hz1[i] = specific_enthalpy_species(nsten->sts3d[1][1][2],i);
                             hz3[i] = specific_enthalpy_species(nsten->sts3d[1][1][0],i);       
- 
-    //                        printf("h = %f hx = [%f %f] hy = [%f %f] hz = [%f %f]\n", h[i], hx1[i], hx3[i], hy1[i], hy3[i], hz1[i], hz3[i]);
+  
                             dx1 = (x1 - x3)/(2*dh[0]);
                             dx2[i] = ((xf1[i] - xf3[i])/(2*dh[0]));
                             dx3[i] = ((xf1[i] - 2*xf2[i] + xf3[i])/(dh[0]*dh[0]));
@@ -1906,7 +1419,7 @@ LOCAL  void  g_ns_soln(
                             hdiffu_term_z += (hdz1[i]*hdz2[i] + h[i]*Dens(nsten->sts3d[1][1][1])*hdz3[i]);      
                         }
                         Energy(ans) += dt*d*(hdiffu_term_x + hdiffu_term_y + hdiffu_term_z);
-      //                  printf("hdiffu_term_x= %f  hdiffu_term_y= %f  hdiffu_term_z= %f \n", hdiffu_term_x, hdiffu_term_y,hdiffu_term_x);    
+
                         float  sum = 0.0;
                         for(i = 0; i < Params(ans)->n_comps; i++)
                             sum += pdens(ans)[i];
@@ -1915,7 +1428,6 @@ LOCAL  void  g_ns_soln(
                     }
                 }
             }
-        //    printf("energy(ans) = %f\n", Energy(ans));
 
             int ic;
             float taux,tauy,tauz,qt,qp[MAX_NCOMPS];
@@ -1972,37 +1484,52 @@ LOCAL  void  g_ns_soln(
              taukkz = ((taukkr*vel(2,nsten->sts3d[1][1][2]))
                       - (taukkl*vel(2,nsten->sts3d[1][1][0]))) / (2*dh[2]);
 
-	     bool subgrid_vis3[3] = {params[0]->avisc.subgrid_vis}, subgrid_md3[MAX_NCOMPS+2] = {params[0]->avisc.subgrid_md};
+	     bool subgrid_vis3[3], subgrid_md3[MAX_NCOMPS+2];
+	     for (int i = 0; i < 3; ++i)
+		 subgrid_vis3[i] = params[0]->avisc.subgrid_vis;
+	     for (int i = 0; i < MAX_NCOMPS+2; ++i)
+		 subgrid_md3[i] = params[0]->avisc.subgrid_md;
+//	     bool subgrid_vis3[3] = {params[0]->avisc.subgrid_vis}, subgrid_md3[MAX_NCOMPS+2] = {params[0]->avisc.subgrid_md};
 
+	     //TMP_XY_weno
+//	     for (int ii = 0; ii < 3; ++ii) {
+//		 printf("subgrid_vis3[%d]: %s\n", ii, (subgrid_vis3[ii]) ? "true" : "false");
+//	     }
+//	     for (int ii = 0; ii < Params(ans)->n_comps; ++ii) {
+//		 printf("subgrid_md3[%d]: %s\n", ii+1, (subgrid_md3[ii+1]) ? "true" : "false");
+//	     }
 
-	     if(Lflag(ans)[1] == YES)
+/*	     if(Lflag(ans)[1] == YES)
 		 subgrid_con = NO;
 
 	     for (i = 0; i < 3; ++i)
 		 if(Lflag(ans)[i+2] == YES)
 		     subgrid_vis3[i] = NO;
-
+*/
 	     if(subgrid_vis3[0] == YES)
 	     {
 		 Mom(ans)[0] -= dt*taux;
 		 Energy(ans) += dt*0.5*taukkx;
+		 //TMP_XY_weno
+//		 printf("sgs_vis3[0]: taux = %e\ttaukkx = %e\n", taux, taukkx);
 	     }
-          //  printf("energy(ans) = %f\n", Energy(ans));
 	     
 	     if(subgrid_vis3[1] == YES)
 	     {
 		 Mom(ans)[1] -= dt*tauy;
 		 Energy(ans) += dt*0.5*taukky;
+		 //TMP_XY_weno
+//		 printf("sgs_vis3[1]: tauy = %e\ttaukky = %e\n", tauy, taukky);
 	     }
 
 	     if(subgrid_vis3[2] == YES)
 	     {
 		 Mom(ans)[2] -= dt*tauz;
 		 Energy(ans) += dt*0.5*taukkz;
+		 //TMP_XY_weno
+//		 printf("sgs_vis3[2]: tauz = %e\ttaukkz = %e\n", tauz, taukkz);
 	     }
-
-             
-             /*
+/*
             if(subgrid_vis == YES)
             {
                  Mom(ans)[0] -= dt*taux;
@@ -2011,23 +1538,29 @@ LOCAL  void  g_ns_soln(
                  Energy(ans) += dt*0.5*(taukkx + taukky + taukkz);
             }
 */
-            if(subgrid_con == YES)
+            if(subgrid_con == YES) {
                  Energy(ans) -= dt*qt;
+		 //TMP_XY_weno
+//		 printf("sgs_con: qt = %e\n", qt);
+	    }
 
-	    if(Lflag(ans)[0] == YES)
-		subgrid_md3[0] = NO;
+//	    if(Lflag(ans)[0] == YES)
+//		subgrid_md3[0] = NO;
 	    if(g_composition_type() == MULTI_COMP_NON_REACTIVE)
 	    {
 		int i;
 		int n_comps = Params(ans)->n_comps;
 		if(n_comps != 1)
 		{
-		    for (i = 0; i < n_comps; ++i)
+/*		    for (i = 0; i < n_comps; ++i)
 			if(Lflag(ans)[i+5] == YES)
-			    subgrid_md3[i+1] = NO;
+			    subgrid_md3[i+1] = NO;	*/
 		    for (i = 0; i < n_comps; ++i)
-			if(subgrid_md3[i+1] == YES)
+			if(subgrid_md3[i+1] == YES) {
 			    pdens(ans)[i] -= dt*qp[i];
+			    //TMP_XY_weno
+//			    printf("sgs_md3[%d] = %e\n", i+1, qp[i]);
+			}
 		}
 	    }
 
@@ -2089,7 +1622,6 @@ LOCAL  void  g_ns_soln(
                 }
             }
 	    OHS(ans) += pdens(ans)[9]*dt;
-//            printf("after parb_npt: rho = %f vel = [%f %f %f] Energy= %f pdens = [%f %f %f %f]\n", Dens(ans), Mom(ans)[0]/Dens(ans), Mom(ans)[1]/Dens(ans),Mom(ans)[2]/Dens(ans),Energy(ans), pdens(ans)[0],pdens(ans)[1],pdens(ans)[2],pdens(ans)[3] );
 	}
 	break;
 	 
@@ -2685,7 +2217,6 @@ EXPORT  void   SGS(
 
 #endif /* defined THREED */
         }
-//        printf("xiaoxue:pass SGS3d\n");
         for (i = 0; i < dim; i++)
         {
             if (!scatter_states(wave,front,iperm,i))
@@ -3719,7 +3250,6 @@ LOCAL   void   SGS3d(
         nsten->npts = npts = wv->npts_sten;
         mid = (int) (npts/2);
 
-   
         Locstate state;
         float    ***C, ***co_C, ***CI, ***co_CI, ***Prt, ***co_Prt;
         float    ****Sct, ****co_Sct;
@@ -3757,7 +3287,6 @@ LOCAL   void   SGS3d(
         float delta_r = 2*dh[2];
         int num_r = gmax[2]*ppgmax[2]/2;
 
-        
         float      sum_co_rho=0.0,sum_co_vel_u=0.0,sum_co_vel_v=0.0,sum_co_vel_w=0.0;
         float      sum_co_rho_vel_u=0.0,sum_co_rho_vel_v=0.0,sum_co_rho_vel_w=0.0;
         float      sum_co_rho_vel_uu=0.0,sum_co_rho_vel_vv=0.0,sum_co_rho_vel_ww=0.0;
@@ -3974,6 +3503,7 @@ LOCAL   void   SGS3d(
         }
 	
 	float cp, T, v0, v1, v2;
+
 //        for (k = mink; k < maxk; k++)
         for (k = imin[2]-2; k < imax[2]+2; k++)
         {
@@ -3993,17 +3523,10 @@ LOCAL   void   SGS3d(
                     re_NS_terms[i+2][j+2][k+2] = NO;
                     continue;
                 }
-                
-                //xiaoxue
-//                float* coordsx;
-  //              coordsx = Rect_coords(icoords,wv);
-    //            printf("icoords = %d %d %d coords = [%f %f %f]\n", icoords[0], icoords[1], icoords[2], coordsx[0], coordsx[1], coordsx[2]);
 
                 if(g_compute_NS_terms(Rect_state(icoords,wv)))
                 {
-     //               printf("##\n");
                     fill_3d_27pt_Pstencil(i,j,k,nsten);
-       //             printf("##\n");
 
                     ux = (vel(0,nsten->sts3d[2][1][1]) -
                                 vel(0,nsten->sts3d[0][1][1])) / (2.0*dh[0]);
@@ -4657,7 +4180,6 @@ LOCAL   void   SGS3d(
        	mesh_avr(wv,LI, ci_nume, iimin, iimax, av);
        	mesh_avr(wv,LMH, prt_nume, iimin, iimax, av);
        	mesh_avr(wv,MMH, prt_deno, iimin, iimax, av);
-        
         if(g_composition_type() == MULTI_COMP_NON_REACTIVE)
         {
              mesh_avr_mc(wv,LMC, sct_nume, iimin, iimax, av);
@@ -5890,38 +5412,5 @@ for (ic = 0; ic < MAX_NCOMPS; ic++)
      }
  }
 }
-}
-
-int Find_coords_location(float coords0, float coords1, float coords2, float dh0,float dh1, float dh2)
-{
-    bool nexttoramp = 0;
-    bool nexttofront = 0;
-    bool nexttoback = 0;
-    bool nexttolow = 0;
-    bool nexttoup = 0;
-    
-    bool inflow = 0;
-    if(coords0 > ramp_x0 && coords0 < ramp_x1 && coords2 > ramp_z0 + tan10*( coords0 - ramp_x0) && coords2 - dh2< ramp_z0 + tan10*( coords0 + dh0 - ramp_x0)) 
-        nexttoramp = 1;
-    else if(coords0 > ramp_x1 && coords2 < zwall && coords2 > zwall - dh2)
-        nexttoup = 1;
-    else if(coords2 < ramp_z1 + dh2 && coords2 > ramp_z1)
-        nexttolow = 1;
-    else if(coords0 < ramp_x0 && coords2 - dh2 < ramp_z0 + tan10*( coords0 + dh0 - ramp_x0))
-        nexttoramp = 1;
-
-    if(coords1 > ywall0 && coords1 < ywall0 + dh1)
-        nexttoback = 1;
-    else if(coords1 > ywall1 - dh1 && coords1 < ywall1)
-        nexttofront = 1;
-
-    if(coords0 > -7.06 && coords0 < -7.06 + dh0)
-        inflow = 1;
-
-    int i,j;
-    i = 1*nexttoramp + 2*nexttolow + 3*nexttoup;
-    j = 1*nexttoback + 2*nexttofront;
-
-    return (12*inflow + 4*j + i);
 }
 

@@ -2096,8 +2096,7 @@ LOCAL int propagate_3d_front(
 	float		*dt_frac,
 	bool		reconstruct_front)
 {
-	printf("xiaoxueenter propagate_3d_front\n");
-        INTERFACE	*intfc_old;
+	INTERFACE	*intfc_old;
 	float		V[MAXD];
 	int             step_status, tangent_status;
 	static   bool	first = YES;
@@ -2108,10 +2107,8 @@ LOCAL int propagate_3d_front(
 
 	intfc_old = front->interf;
 	
-        printf("xiaoxue:enter init_intrx_curv2d\n");
  	if (front->step == 0)
             init_intfc_curvature3d2(newfront,newfront->interf);
-        printf("leave init_intfc_cur3d\n");
 
 	//after redistribute or restart, the curvature is not calculated.
         init_intfc_curvature3d(front, front->interf);
@@ -2121,16 +2118,14 @@ LOCAL int propagate_3d_front(
         check_print_intfc("Before prop new intfc", "detach_bfn", 'g',
                          newfront->interf, front->step, 101, NO);
 	//DEBUG_TMP g_check_params_comp(wave, front->interf);
-        
+
 	if (front->_point_propagate != NULL)
 	{
 	    bool tri_list_status;
 	    start_clock("normal_propagate");
 
-	    printf("xiaoxue enter tri_list_status\n"); 
-            tri_list_status = 
+	    tri_list_status = 
 	        make_tri_comp_lists(intfc_old) == FUNCTION_FAILED ? NO : YES;
-            printf("xiaoxue leave make_tri_comp_lists\n");
 
 	    if (pp_min_status(tri_list_status) == NO)
 	    {
@@ -2141,24 +2136,23 @@ LOCAL int propagate_3d_front(
 	    }
 	    
 	    /* Set Default Propagation Limits */
-            printf("xiaoxue@\n");
+
 	    set_propagation_limits(front,newfront);
 
-            printf("@xiaoxue\n");
 	    start_clock("init_propagate");
 	    init_propagate(front);
 	    stop_clock("init_propagate");
-            printf("@xiaoxue\n");
+
 	    //set_wall_flag_for_surface(front->interf);
-                
+
 	    if (front->_point_propagate != NULL)
                 propagate_surface_points(front,newfront,wave,dt,V);
 	    else if (front->surface_propagate != NULL)
 	        surface_propagate(front,newfront,wave,dt,V);
-	    printf("@xiaoxue\n");
+	    
 	    if (front->curve_propagate != NULL)
 	        propagate_curve_points(front,newfront,wave,dt);
-	printf("@xiaoxue\n");
+	
 	    if (front->node_propagate != NULL)
 	    {
 	        step_status = propagate_node_points(front,newfront,
@@ -2169,9 +2163,7 @@ LOCAL int propagate_3d_front(
 		    return step_status;
 		}
 	    }
-	    printf("@xiaoxue\n");
-            reset_normal_on_intfc(newfront->interf);
-            printf("@xiaoxue\n");
+	    reset_normal_on_intfc(newfront->interf);
 	    debug_front("np_front","after normal propagation",newfront);
 	    stop_clock("normal_propagate");
 	}
@@ -2179,22 +2171,19 @@ LOCAL int propagate_3d_front(
         check_print_intfc("After point prop", "prop_af", 'g',
                    newfront->interf, newfront->step, 1003, NO);
 
-        printf("@xiaoxue: debug_propagate_3d_front\n");
 	debug_propagate_3d_front(newfront);
 
-        printf("@xiaoxue: interface_reconstructed\n");
 	interface_reconstructed(newfront->interf) = NO;
 	//#bjet2  
 	//prev_interface(newfront->interf) = front->interf;
 
 	if (reconstruct_front == YES)
 	{
-            printf(" reconstruct_fron == YES\n");
 	    bool reconstruct_status;
 	    start_clock("reconstruct_front");
-	    printf("@xiaoxue\n");
+	    
 	    reconstruct_status = reconstruct_front_at_grid_crossing(newfront);
-	    printf("@xiaoxue\n");
+	    
 	    reconstruct_status = pp_min_status(reconstruct_status);
 	    if (!reconstruct_status)
 	    {
@@ -2241,15 +2230,14 @@ LOCAL int propagate_3d_front(
 
         check_print_intfc("After scatter front", "scat", 'g',
                          newfront->interf, newfront->step, 1003, NO);
-printf("@xiaoxue\n");
+
 	init_intfc_curvature3d(newfront,newfront->interf);
 	if (front->_tan_point_propagate != NULL && !debugging("sample_speed") &&
 	    !debugging("notang"))
 	{
 	    start_clock("tangentiall");
 
-	    printf("@xiaoxue propagate_points_tangentially\n");
-            tangent_status = propagate_points_tangentially(front,newfront,
+	    tangent_status = propagate_points_tangentially(front,newfront,
 							   reconstruct_front,
 							   dt,dt_frac,
 							   (front->step)%2);
@@ -2258,7 +2246,7 @@ printf("@xiaoxue\n");
 		DEBUG_LEAVE(propagate_3d_front)
 		return tangent_status;
 	    }
-            printf("@xiaoxue2\n");
+
 	    tangent_status = propagate_points_tangentially(front,newfront,
 							   reconstruct_front,
 							   dt,dt_frac,
@@ -2305,7 +2293,6 @@ printf("@xiaoxue\n");
 
 	debug_print("front","Left propagate_3d_front()\n");
 	DEBUG_LEAVE(propagate_3d_front)
-        printf("leave 3d_front\n");
 	return GOOD_STEP; 
 }		/*end propagate_3d_front*/
 
@@ -3179,14 +3166,13 @@ LOCAL void propagate_surface_points(
         float           dt,
         float           *V)
 {
-        printf("xiaoxue:enter propagate_surface_points\n");
         INTERFACE               *intfc_old = front->interf;
         INTERFACE               *intfc_new = newfront->interf;
         HYPER_SURF              *oldhs, *newhs;
         HYPER_SURF_ELEMENT      *oldhse, *newhse;
         POINT                   *oldp, *newp;
 	RECT_GRID		*gr = front->rect_grid;
-       
+
 	DEBUG_ENTER(propagate_surface_points)
 
         start_clock("surface_propagate");
@@ -3194,21 +3180,16 @@ LOCAL void propagate_surface_points(
 	//DEBUG_TMP check_normal_on_intfc(intfc_old);
 	//DEBUG_TMP check_normal_on_intfc(intfc_new);
 
-        printf("xiaoxue#\n");
 	(void) next_point(intfc_old,NULL,NULL,NULL);
-        printf("xiaoxue#\n");
         (void) next_point(intfc_new,NULL,NULL,NULL);
-        printf("xiaoxue#\n");
         while (next_point(intfc_old,&oldp,&oldhse,&oldhs) &&
              next_point(intfc_new,&newp,&newhse,&newhs))
         {
-	    printf("xiaoxue#0\n");
-            if(Boundary_point(newp))
+	    if(Boundary_point(newp))
 	        continue;
-	    
-            printf("xiaoxue#1\n");
+		
 	    point_propagate(front,wave,oldp,newp,oldhse,oldhs,dt,V);
-            printf("xiaoxue#2\n");
+
 	    //WARN fix for nozzle
 	    // 100325 YYU
 	    if(debugging("jet3d_nozzle") && wave_type(oldhs) 
@@ -3223,7 +3204,7 @@ LOCAL void propagate_surface_points(
 		    distort_point(newp);
 	    }
 	}
-        printf("leave:xiaoxue#\n");
+
         stop_clock("surface_propagate");
         DEBUG_LEAVE(propagate_surface_points)
 }               /*end propagate_surface_points*/

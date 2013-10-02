@@ -374,13 +374,6 @@ float   molecular_weight(
         for (n = 0.0, i = 0; i < n_comps; ++i)
                 n += rho[i]/(eos->_M[i]);
 
-	//TMP_XY_weno
-	if (Dens(state)/n < 0) {
-	    printf("In molecular_weight, Dens(state) = %e\t n = %E\n", Dens(state), n);
-//	    for (int ii = 0; ii < n_comps; ++ii)
-//		printf("rho[%d] = %E\t M[%d] = %E\n", ii, rho[ii], ii, eos->_M[ii]);
-	}
-
         return Dens(state)/n;
 
 }       /*end molecular_weight*/

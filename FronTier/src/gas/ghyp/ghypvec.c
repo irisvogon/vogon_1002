@@ -62,7 +62,7 @@ EXPORT	void vector_FD(
 	float		dt,
 	float		dh)
 {
-        Vec_Gas		*vst = g_wave_vgas(wv);
+	Vec_Gas		*vst = g_wave_vgas(wv);
 	Vec_Src		*src = g_wave_vsrc(wv);
 	int		idir = iperm[swp_num];
 	int		dim = wv->rect_grid->dim;
@@ -70,7 +70,6 @@ EXPORT	void vector_FD(
 	int		vsize;
 	static	float	alpha;
 	static	bool	first = YES;
-        if(icoords[0] == 20) print_storage("vector_FD 1","sweep_storage");
 
 #if defined(TIME_HYPVEC)
 	start_clock("vector_FD");
@@ -85,7 +84,7 @@ EXPORT	void vector_FD(
 
 	vsize = imax - imin;
 	if (vsize < wv->npts_vsten) return;
-        if (load_state_vectors(swp_num,iperm,vst,0,vsize,wv,newwv,
+	if (load_state_vectors(swp_num,iperm,vst,0,vsize,wv,newwv,
 			       icoords,imin) == CONSTANT_IN_TIME)
 	{
 #if defined(TIME_HYPVEC)
@@ -93,8 +92,6 @@ EXPORT	void vector_FD(
 #endif /* defined(TIME_HYPVEC) */
 	    return;
 	}
-
-        if(icoords[0] == 20) print_storage("vector_FD 2","sweep_storage");
 
 	if (is_rotational_symmetry() &&  (alpha > 0.0) && (iperm[swp_num] == 0))
  	{
@@ -107,20 +104,15 @@ EXPORT	void vector_FD(
  	    	radii[j] = pos_radius(cell_center(j+imin,0,rgr),rgr);
  	}
 
-        if(icoords[0] == 20) print_storage("vector_FD 3","sweep_storage");
 	oned_interior_scheme(swp_num,iperm,icoords,wv,newwv,fr,newfr,NULL,
 		             0,vsize,vst,src,dt,dh,dim);
-        if(icoords[0] == 20) print_storage("vector_FD 4","sweep_storage");
 
-        assign_wave_state_vectors(swp_num,iperm,wv,newwv,vst,nrad,
+	assign_wave_state_vectors(swp_num,iperm,wv,newwv,vst,nrad,
 		                  vsize-nrad,icoords,imin);
-        if(icoords[0] == 20) print_storage("vector_FD 5","sweep_storage");
-
-        check_and_correct_bad_state(swp_num,iperm,icoords,fr,newfr,wv,newwv,
+	check_and_correct_bad_state(swp_num,iperm,icoords,fr,newfr,wv,newwv,
 					dh,dt,dir,nrad,vsize-nrad,imin);
-        if(icoords[0] == 20) print_storage("vector_FD 7","sweep_storage");
 
-        debug_print("vector_FD","Left vector_FD(), dir = %d\n",idir);
+	debug_print("vector_FD","Left vector_FD(), dir = %d\n",idir);
 #if defined(TIME_HYPVEC)
 	stop_clock("vector_FD");
 #endif /* defined(TIME_HYPVEC) */
@@ -227,6 +219,12 @@ EXPORT	void check_and_correct_bad_state(
 
 	if (is_bad_state(state,flag,"check_and correct_bad_state") || smooth_vel)
 	    {
+		    //TMP_XY_weno
+		    verbose_print_state("#XY",state);
+		    coords = Rect_coords(icoords, newwv);
+		    printf("Coords = (%f, %f, %f)\n", coords[0], coords[1], coords[2]);
+		    printf("swp_num = %d\t imin = %d\t pbuf = %d\n", swp_num, imin, pbuf);
+//		    printf("idirs[0] = %d\t idirs[1] = %d\t idirs[2] = %d\n", idirs[0], idirs[1], idirs[2]);
 		for (k = 0; k < dim; k++)
 		    icrds_sten[k] = icoords[k];
 		for (j = -1; j <= 1; ++j)
@@ -244,8 +242,12 @@ EXPORT	void check_and_correct_bad_state(
 		    printf("\n");
 		    for( k = 0; k < dim; ++k)
 			printf("Mom(state)[%d] = %f\n",k,Mom(sten->st[j])[k]);
+		    
+		    //TMP_XY
+		    printf("Energy(state) = %f\n", Energy(sten->st[j]));
+		    
 		    printf("\n");
-		}
+		}	
 		printf("#TMP_TK ghypvec.c LF\n");
 		if(smooth_vel)
 		{
@@ -268,10 +270,10 @@ EXPORT	void check_and_correct_bad_state(
 		}
 		else
 		    LF(dh,dt,state,dir,swp_num,iperm,NULL,sten);
-		
+		//TMP_XY_weno
+		printf("After LF.\n");	
 		if (is_bad_state(state,YES,message))
-		    wv->redo_time_step = YES;
-		    //clean_up(ERROR);
+		    clean_up(ERROR);
 	    }
 	}
 	    

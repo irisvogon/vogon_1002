@@ -2157,7 +2157,7 @@ EXPORT	float find_time_step(
 	    }
 	}
 
- /*       if(pp_mynode() == n_proc)
+        if(pp_mynode() == n_proc)
         {
             printf("#print point info \n");
             print_general_vector("Maxsp(wave) = ",Maxsp(wave),dim,"\n");
@@ -2167,7 +2167,7 @@ EXPORT	float find_time_step(
                 tmp_print_gas_state("MaxWaveSpeedState", MaxWaveSpeedState(wave)[i]);
                 tmp_print_gas_state("MaxFrontSpeedState", MaxFrontSpeedState(front)[i]);
             }
-        }*/
+        }
 
 	if (print_set_by == YES)
 	{

@@ -602,8 +602,7 @@ LOCAL	void g_point_propagate(
 	float		   dt,
 	float		   *V)
 {
-	printf("enter g_points_propagate\n");
-        INTERFACE	*intfc = fr->interf;
+	INTERFACE	*intfc = fr->interf;
 	Wave		*wave = (Wave*)p2wave;
 	int		i, dim = intfc->dim;
 	int		w_type;
@@ -614,20 +613,18 @@ LOCAL	void g_point_propagate(
 	static WSSten	*sten = NULL;
 	bool		ptspd, movfr;
 
-/*        printf("xiaoxue_pp\n");
 	entered_point_propagate(fname,oldhs);
 
+		/* Allocate storage */
         //RK_PRINT("******* 1\n");
 
-        printf("xiaoxue_pp\n");
 	if (sten == NULL) 
 	    sten = AllocDefaultWSSten(fr);
 	else
 	    ClearWSStenData(sten);
 
         //RK_PRINT("******* 2\n");
-	printf("xiaoxue_pp\n");
-        w_type = (is_subdomain_boundary(oldhs)) ?
+	w_type = (is_subdomain_boundary(oldhs)) ?
 			SUBDOMAIN_BOUNDARY : wave_type(oldhs);
 
 	if(debugging("sample_speed"))
@@ -642,7 +639,6 @@ LOCAL	void g_point_propagate(
 	else
 	    sten->V = NULL;
 	
-        printf("xiaoxue_pp\n");
         //RK_PRINT("******* 3\n");
 	if (passive_point_propagate(w_type,oldp,newp,V,intfc)==YES)
 	{
@@ -650,12 +646,10 @@ LOCAL	void g_point_propagate(
 	    return;
 	}
 
-        printf("xiaoxue_pp\n");
         //RK_PRINT("******* 4\n");
 	movfr = NO;
-        printf("enter SetWSStenData\n");
 	SetWSStenData(sten,fr,wave,oldp,oldhse,oldhs,dt);
-        printf("xiaoxue:leave SetWSStenData\n");	
+	
 	if(debugging("fcrxsten") && 
 	   (sten->indxl < sten->nsts || sten->indxr < sten->nsts))
 	{
@@ -670,8 +664,8 @@ LOCAL	void g_point_propagate(
 	        ptspd = NO;
 	}
 
+	/* Advance front point and states in normal sweep */
 
-        printf("xiaoxue_pp\n");
         //RK_PRINT("******* 5\n");
 	if(!debugging("sample_speed"))
 	{
@@ -686,66 +680,106 @@ LOCAL	void g_point_propagate(
 	else if(w_type == CONTACT)
 	{
             //RK_PRINT("!!!!!!! 3\n");
-	    printf("xiaoxue_pp!\n");
-            static Locstate	stl=NULL, str;
+	    static Locstate	stl=NULL, str;
 	    float		Vsurf[3], tmp[3];
 	    int			st_type;
 	    
-            
-            printf("xiaoxue_pp!\n");
             //RK_PRINT("!!!!!!! 4\n");
 	    if(stl == NULL)
 	    {
-                printf("xiaoxue_pp!\n");
                 //RK_PRINT("!!!!!!! 5\n");
 		alloc_state(intfc,&stl,fr->sizest);
                 //RK_PRINT("!!!!!!! 6\n");
-		printf("xiaoxue_pp!\n");
-                alloc_state(intfc,&str,fr->sizest);
+		alloc_state(intfc,&str,fr->sizest);
                 //RK_PRINT("!!!!!!! 7\n");
-                printf("xiaoxue_pp!\n");
 	    }
 
             //RK_PRINT("!!!!!!! 8\n");
-                printf("xiaoxue_pp!\n");
 	    ft_assign(left_state(newp), left_state(oldp), fr->sizest);
             //RK_PRINT("!!!!!!! 9\n");
-printf("xiaoxue_pp!\n");
 	    ft_assign(right_state(newp), right_state(oldp), fr->sizest);
             //RK_PRINT("!!!!!!!10\n");
-printf("xiaoxue_pp!\n");	
-
+	
 	    ft_assign(stl, left_state(oldp), fr->sizest);
-printf("xiaoxue_pp!\n"); 
-           //RK_PRINT("!!!!!!!11\n");
+            //RK_PRINT("!!!!!!!11\n");
 	    ft_assign(str, right_state(oldp), fr->sizest);
-  printf("xiaoxue_pp!\n"); 
-         //RK_PRINT("!!!!!!!12\n");
+            //RK_PRINT("!!!!!!!12\n");
     
 	    if(!is_obstacle_state(stl) && !is_obstacle_state(str) && ptspd)
 	    {
                 //RK_PRINT("!!!!!!!13\n");
-                printf("xiaoxue_pp!\n");
 		sample_point_state(stl,str,wave,oldp,oldhs,dt,Vtmp,intfc);
                 //RK_PRINT("!!!!!!!14\n");
-	printf("xiaoxue_pp!\n");
+	
 		w_speed(Coords(oldp),stl,str, left_state(newp),right_state(newp),
 		   Vsurf, sten->pjump, sten->nor, w_type, fr);
                 //RK_PRINT("!!!!!!!15\n");
-	        printf("xiaoxue_pp!\n");
+	        
+		/*
+		verbose_print_state("vsurfl", sl);
+		verbose_print_state("vsurfr", sr);
+		
+		print_general_vector("Vsurf=", Vsurf, 3, "\n");
+	
+		verbose_print_state("new vsurfl", left_state(newp));
+		verbose_print_state("new vsurfl", right_state(newp));
+		
+		if(fabs(vel(2, left_state(newp))) > 70.0)
+		    clean_up(ERROR);
+
+		printf("#pres %15.8e %15.8e   %15.8e\n", 
+	            pressure(sl), pressure(sr), sten->pjump);
+		print_general_vector("Crds=", Coords(oldp), 3, "\n");
+		print_general_vector("Vsurf=", Vsurf, 3, "\n");
+		print_general_vector("Vtmp=", Vtmp, 3, "\n");
+		print_general_vector("nor=", sten->nor, 3, "\n");
+		Cross3d(Vsurf, sten->nor, tmp);
+		printf("vamp %15.8e %15.8e %15.8e\n\n", Mag3d(Vsurf), Mag3d(Vtmp),Mag3d(tmp));
+		
+		sl = left_state(newp);
+		st_type = state_type(sl);
+		set_state(sl, TGAS_STATE, sl);
+		ft_assign(Vel(sl), Vsurf, 3*FLOAT);
+		set_state(sl, st_type, sl);
+		
+		sl = right_state(newp);
+		st_type = state_type(sl);
+		set_state(sl, TGAS_STATE, sl);
+		ft_assign(Vel(sl), Vtmp, 3*FLOAT);
+		set_state(sl, st_type, sl);
+		//verbose_print_state("vsurf", sl);
+
+		if(the_point(oldp) && fr->step == 1512)
+		{
+		    float	nor[3];
+
+		    print_general_vector("#oldp", Coords(oldp), 3, "\n");
+		    print_general_vector("Vtmp=", Vtmp, 3, "\n");
+		    print_general_vector("Vsurf=", Vsurf, 3, "\n");
+		    verbose_print_state("sl", sl);
+		    verbose_print_state("sr", sr);
+		    printf("pjump  = %15.8e w_type = %d\n", sten->pjump, w_type);
+		    print_general_vector("nor=", sten->nor, 3, "\n");
+
+
+		    add_to_debug("db_nor");
+		    sine_weighted_normal3d(oldp, oldhse, oldhs, nor);
+		    remove_from_debug("db_nor");
+
+		    print_general_vector("new nor=", nor, 3, "\n");
+		}
+		*/
 		
 		//left and right states have the same speed.
                 //RK_PRINT("!!!!!!!16\n");
-        printf("xiaoxue_pp!\n");
+
 		for(i=0; i<3; i++)
 		{
 		    //Vtmp[i] += Vsurf[i];
 		    //Vtmp[i] = Vsurf[i];
-                printf("xiaoxue_pp!\n");
                     //RK_PRINT("!!!!!!!17 : i=%d\n",i);
 		    Vtmp[i] = vel(i, left_state(newp));
 		}
-                printf("xiaoxue_pp!\n");
                 //RK_PRINT("!!!!!!!18\n");
 	    }
 	}
@@ -754,29 +788,22 @@ printf("xiaoxue_pp!\n");
 	    //keep the original states for boundary surfaces 
 	    //do not move the boundary surfaces
             //RK_PRINT("!!!!!!!19\n");
-printf("xiaoxue_pp!!\n");
 	    ft_assign(left_state(newp), left_state(oldp), fr->sizest);
             //RK_PRINT("!!!!!!!20\n");
-printf("xiaoxue_pp!!\n");
 	    ft_assign(right_state(newp), right_state(oldp), fr->sizest);
             //RK_PRINT("!!!!!!!21\n");
-printf("xiaoxue_pp!!\n");
 	    for(i=0; i<3; i++)
 	    {
                 //RK_PRINT("!!!!!!!22 i=%d\n",i);
-printf("xiaoxue_pp!!\n");
 		V[i] = 0.0;
 		Vtmp[i] = 0.0;
 	    }
             //RK_PRINT("!!!!!!!23\n");
-printf("xiaoxue_pp!!\n");
 	}
         //RK_PRINT("******* 6\n");
-printf("xiaoxue_pp!!\n");
 
 	if(fr->movingframe == YES && sten->V && !debugging("sample_speed")) 
 	{
-printf("xiaoxue_pp!!\n");
 	    for (i = 0; i < dim; i++)
 	    {
 		sten->V[i] *= -1.0;
@@ -786,7 +813,6 @@ printf("xiaoxue_pp!!\n");
 	    add_velocity_to_state(right_state(newp),sten->V);
 	}
         //RK_PRINT("******* 7\n");
-printf("xiaoxue_pp!!\n");
 
 	if (is_scalar_wave(w_type) && debugging("experiment"))
 	{
@@ -811,47 +837,116 @@ printf("xiaoxue_pp!!\n");
 	    }
 	}
         //RK_PRINT("******* 8\n");
-printf("xiaoxue_pp!!\n");
+
+/*
+	if (Coords(oldp)[2] > 3.985)
+	{
+	    V[0] = 0.0;
+	    V[1] = 0.0;
+	    V[2] = 0.0;
+	}
+	else if (Coords(oldp)[2] > 3.975)
+	{
+	    V[2] = 0.0;
+	}
+	else
+	{
+	    if (Coords(oldp)[2] + V[2]*dt > 3.985)
+		V[2] = (3.975 - Coords(oldp)[2]) / dt;
+	}
+*/
+ 
         //RK_PRINT("******* 9\n");
 	for (i = 0; i < dim; ++i)
 	    Coords(newp)[i] = Coords(oldp)[i] + V[i]*dt;
-printf("xiaoxue_pp!!\n");
-        {
+
+	//printf("%d ", newp);
+	//print_general_vector("newp", Coords(newp), 3, "\n");
+
+	//if(the_point(oldp))
+        //RK_PRINT("*******10\n");
+	if(NO && the_point(newp))
+	{
+	    //char  fname[200];
+	    //sprintf(fname, "%shs_out", get_directory());
+	    
+	    printf("#newp stenprt\n");
+	    
+	    //tecplot_surface_in_ball("hs_out", Surface_of_hs(oldhs));
+	    //tecplot_sten_points("hs_out_sten", sten);
+	    //print_WSStenData(sten);
+
+	    print_general_vector("#newp", Coords(newp), 3, "\n");
+	    print_general_vector("#oldp", Coords(oldp), 3, "\n");
+	    //verbose_print_state("newp sl ", left_state(newp));
+	    //verbose_print_state("newp sr ", right_state(newp));
+	}
+	{
 	    Locstate sl, sr;
 	    sl = left_state(newp);
 	    sr = right_state(newp);
-printf("xiaoxue_pp!!\n");
+
 	    if(!is_obstacle_state(sl) && pressure(sl) > 306170620.0)
 	    {
 	        printf("sl is hight\n");
 	        print_WSStenData(sten);
 	    }
-printf("xiaoxue_pp!!\n");  
+	    
 	    if(!is_obstacle_state(sr) && pressure(sr) > 306170620.0)
 	    {
 	        printf("sr is hight\n");
 	        print_WSStenData(sten);
 	    }
-	}*/
-        for(int i = 0; i < dim ; i++)
-            V[i] = 0.0;
+	}
 	/* Record speed for time step calculation */
-printf("xiaoxue_pp!!\n");
+
         //RK_PRINT("*******11\n");
 	for (i = 0; i < dim; ++i)
 	    set_max_front_speed(i,fabs(V[i]),return_obst_state(),
 				Coords(newp),fr);
-printf("xiaoxue_pp!!!\n");
-//	set_max_front_speed(dim,fabs(scalar_product(V,sten->nor,dim))/sten->dn,
-//			    return_obst_state(),Coords(newp),fr);
 
-	set_max_front_speed(dim, 0.0,
+	set_max_front_speed(dim,fabs(scalar_product(V,sten->nor,dim))/sten->dn,
 			    return_obst_state(),Coords(newp),fr);
 
-        if(movfr)
+	if(movfr)
 	    add_to_debug("sample_speed");
-        
-        left_point_propagate(fname,newp,V,dt,dim,sten);
+
+        //RK_PRINT("*******12\n");
+	if (dim == 1)
+	{
+	    int w_type = wave_type(newp);
+	    if (is_shock_wave(w_type))
+	    {
+	        Locstate ahead, behind;
+	        
+		if (is_forward_wave(w_type))
+		{
+		    ahead = right_state(newp);
+		    behind = left_state(newp);
+		}
+		else
+		{
+		    ahead = left_state(newp);
+		    behind = right_state(newp);
+		}
+	        if (!tracked_oned_scattered_wave(SHOCK_WAVE,ahead,behind,fr))
+		{
+		    untracked_hyper_surf(oldp) = YES;
+		    untracked_hyper_surf(newp) = YES;
+		}
+	    }
+	    if (w_type == CONTACT)
+	    {
+	        if (!tracked_oned_scattered_wave(CONTACT_WAVE,left_state(newp),
+		                                 right_state(newp),fr))
+		{
+		    untracked_hyper_surf(oldp) = YES;
+		    untracked_hyper_surf(newp) = YES;
+		}
+	    }
+	}
+        //RK_PRINT("*******13\n");
+	left_point_propagate(fname,newp,V,dt,dim,sten);
 }		/*end g_point_propagate*/
 
 LOCAL	void	g_ClearWSStenData(
@@ -927,14 +1022,13 @@ LOCAL	void	SetWSStenData(
 	Locstate sl, sr;	       /* states at left/right sides of front */
 	int i;
 
-        printf("xiaoxue_setwss\n");
 	ClearWSStenData(sten);/*TODO: This can be a debug line once we are
 			       *sure sten is set properly
 			       */
 #if defined(DEBUG_POINT_PROPAGATE)
 	debug_print("WSSten","Entered SetWSStenData()\n");
 #endif /* defined(DEBUG_POINT_PROPAGATE) */
-printf("xiaoxue_setwss\n");
+
 	if (fr->interf->modified)
 	{
 	    if (!make_interface_topology_lists(fr->interf))
@@ -944,7 +1038,7 @@ printf("xiaoxue_setwss\n");
 		clean_up(ERROR);
 	    }
 	}
-printf("xiaoxue_setwss\n");
+
 	sten->w_type = wave_type(oldhs);
 	sten->p = oldp;
 	sten->hs = oldhs;
@@ -952,22 +1046,22 @@ printf("xiaoxue_setwss\n");
 	sten->front = fr;
 	sten->wave = wave;
 	sten->dt = dt;
-printf("xiaoxue_setwss\n");
+
 	/* Calculate normal direction */
 	/* and positions of normally displaced states */
 	find_propagation_direction(oldp,oldhse,oldhs,sten->nor,fr);
-printf("xiaoxue_setwss\n");
+
 	/* Calculate pressure jump due to surface tension */
 	 
 	sten->pjump = set_pjump_at_wave(oldp,oldhse,oldhs,fr,sten->nor);
-printf("xiaoxue_setwss\n");
+
 	/* Find states near front for normal sweep */
+
 	slsr(oldp,oldhse,oldhs,&sl,&sr);
-printf("xiaoxue_setwss\n");
+
 	states_near_location(sten,Coords(oldp),sten->nor,
 				  positive_component(oldhs),
 				  negative_component(oldhs),sl,sr);
-printf("xiaoxue_setwss\n");
 	if (sten->V)	/* subtract moving frame velocity */
 	{
 	    calculate_frame_velocity(sl,sr,fr->interf->dim,sten->V);
@@ -977,7 +1071,7 @@ printf("xiaoxue_setwss\n");
 		add_velocity_to_state(sten->sr[i],sten->V);
 	    }
 	}
-printf("xiaoxue_setwss\n");
+
 	/*TMP*/
 	if (debugging("tmp_init_curve"))
 	    print_WSStenData(sten);
@@ -3040,12 +3134,12 @@ LOCAL	void	g_ws_interpolate(
                     /* New 051005 */
                     if(fabs(pdens(ans)[k]) < 10.0*MACH_EPS && pdens(ans)[k] < 0.0)
                         pdens(ans)[k] = 0.0;
-  //                  else if(fabs(pdens(ans)[k]) > 10.0*MACH_EPS && pdens(ans)[k] < 0.0)
-  //                  {
-    //                    printf("ERROR in g_ws_interpolate() x = %g\n", x);
-      //                  printf("partial density < 0.0\n");
-        //                clean_up(ERROR);
-          //          }
+                    else if(fabs(pdens(ans)[k]) > 10.0*MACH_EPS && pdens(ans)[k] < 0.0)
+                    {
+                        printf("ERROR in g_ws_interpolate() x = %g\n", x);
+                        printf("partial density < 0.0\n");
+                        clean_up(ERROR);
+                    }
                     /* End of New 051005 */
                 }
                 for(k = 0; k < Params(ans)->n_comps; k++)
@@ -3114,8 +3208,7 @@ EXPORT	void states_near_location(
 	Locstate	sl,
 	Locstate	sr)
 {
-        printf("enter states_near_location\n");
-       	Front		*fr = sten->front;
+	Front		*fr = sten->front;
 	HYPER_SURF	*hs = sten->hs;
 	Wave		*wave = sten->wave;
 	Locstate	stmpl, stmpr;
@@ -3128,7 +3221,6 @@ EXPORT	void states_near_location(
 	debug_print("point_propagate","Entered states_near_location()\n");
 #endif /* defined(DEBUG_POINT_PROPAGATE) */
 
-printf("xiaoxue_statesnear\n");
 	sten->pcomp = pcomp;
 	sten->ncomp = ncomp;
 	if (nor != sten->nor)
@@ -3136,10 +3228,9 @@ printf("xiaoxue_statesnear\n");
 	    for (j = 0; j < dim; ++j)
 		sten->nor[j] = nor[j];
 	}
-printf("xiaoxue_statesnear\n");
 	for (j = 0; j < dim; ++j)
 	    sten->coords[j] = sten->lcrds[0][j] = sten->rcrds[0][j] = coords[j];
-printf("xiaoxue_statesnear\n");
+
 	sten->dn = dn = grid_size_in_direction(sten->nor,h,dim);
 	for (i = 1; i < nsts; ++i)
 	{
@@ -3149,18 +3240,15 @@ printf("xiaoxue_statesnear\n");
 	        sten->rcrds[i][j] = coords[j] + i*nor[j]*dn;
 	    }
 	}
-printf("xiaoxue_statesnear\n");	
+	
 	set_state(sten->sl[0],state_type(sl),sl);
 	set_state(sten->sr[0],state_type(sr),sr);
-printf("xiaoxue_statesnear\n");
 	interface_crosses_stencil(sten,&indxl,&indxr,&stmpl,&stmpr);
-printf("xiaoxue_statesnear\n");
 	sten->indxl = indxl;
 	sten->indxr = indxr;
 
 	if (is_obstacle_state(sl))
 	{
-        printf("xiaoxue_statesnear_isobs\n");
 #if defined(DEBUG_POINT_PROPAGATE)
 	    if (debug_point_propagate)
 	        (void) printf("sl is an obstacle state\n");
@@ -3170,7 +3258,6 @@ printf("xiaoxue_statesnear\n");
 	}
 	else
 	{
-                printf("xiaoxue_statesnear not obstacle\n");
 	    for (i = 1; i < indxl; ++i)
 	    {
 #if defined(DEBUG_POINT_PROPAGATE)
@@ -3191,7 +3278,6 @@ printf("xiaoxue_statesnear\n");
 	}
 	if (is_obstacle_state(sr))
 	{
-                printf("xiaoxue_statesnear is_obstacle_state(sr)\n");
 #if defined(DEBUG_POINT_PROPAGATE)
 	    if (debug_point_propagate)
 	        (void) printf("sr is an obstacle state\n");
@@ -3201,7 +3287,6 @@ printf("xiaoxue_statesnear\n");
 	}
 	else
 	{
-                printf("xiaoxue_statesnear sr not obstale\n");
 	    for (i = 1; i < indxr; ++i)
 	    {
 #if defined(DEBUG_POINT_PROPAGATE)
@@ -3245,7 +3330,7 @@ printf("xiaoxue_statesnear\n");
 		clean_up(ERROR);
 	    }
 	}
-printf("leave xiaoxue_statesnear\n");
+
 #if defined(DEBUG_POINT_PROPAGATE)
 	debug_print("point_propagate","Left states_near_location()\n");
 #endif /* defined(DEBUG_POINT_PROPAGATE) */

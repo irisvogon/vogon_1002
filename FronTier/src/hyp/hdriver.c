@@ -63,6 +63,7 @@ EXPORT int hyp_vector_driver(
 	free_pt_source_interior_vectors(wave);
 
 	debug_print("hyp","Left hyp_vector_driver()\n");
+
 	DEBUG_LEAVE(hyp_vector_driver)
 	return status;
 }		/*end hyp_vector_driver*/
@@ -114,7 +115,7 @@ void	RI_get_minmax_radius(Front *);
 	void		(*sweep)(int,int*,float,float,
 				 Wave*,Wave*,Front*,Front*,COMPONENT))
 {
-       	Front		*newfront;
+	Front		*newfront;
 	Front		*infront[3], *outfront[3];
 	INTERFACE	*current_intfc, *tmp_intfc;
 	Wave		*wk_wv1 = NULL, *wk_wv2 = NULL;
@@ -130,7 +131,7 @@ void	RI_get_minmax_radius(Front *);
 	static char	err[] = "ERROR in hyp_split_driver()";
 	float           cpu_time;
 	DEBUG_ENTER(hyp_split_driver)
-	print_storage("At the begining of hyp_split_driver","HYP_storage");
+
 	debug_print("hyp","Entered hyp_split_driver()\n");
 	set_hyp_npt_globals(wave);
 
@@ -169,13 +170,8 @@ void	RI_get_minmax_radius(Front *);
 	
 	add_time_start(0);
 	add_time_start(1);
-	printf("xiaoxue enter advance_front\n");
-	print_storage("before advance front","HYP_storage");
-        
-        status = advance_front(dt,dt_frac,front,&newfront,(POINTER) wave); 
-	print_storage("after advance front","HYP_storage");
-        
-        printf("xiaoxue leave advance front\n");
+	status = advance_front(dt,dt_frac,front,&newfront,(POINTER) wave); 
+
 	//after redistribute and untangle curvature should be recalculated.
         //before init_hyp_solution
 	if(status == GOOD_STEP)
@@ -183,7 +179,6 @@ void	RI_get_minmax_radius(Front *);
 	    init_intfc_curvature3d(newfront, newfront->interf);
 	    prev_interface(newfront->interf) = NULL;
 	}
-	print_storage("@","HYP_storage");
 
 	add_time_end(1);
 	stop_clock("advance_front");
@@ -235,10 +230,8 @@ void	RI_get_minmax_radius(Front *);
 
 
 		/* Initialize Intermediate Storage for States */
-	print_storage("@@","HYP_storage");
-	wk_wv1 = copy_wave(wave);
-        print_storage("@@","HYP_storage");
 
+	wk_wv1 = copy_wave(wave);
 	clear_wave_pointers(wk_wv1);
 	switch (dim)
 	{
@@ -294,8 +287,6 @@ void	RI_get_minmax_radius(Front *);
 
 	prev_interface(newfront->interf) = wave_tri_soln(wave)->tri_grid->grid_intfc;
 	status = init_hyp_solution_function(outwave[0],newfront);
-        /*xiaoxue: correct the componet of the new wave*/
-
 	prev_interface(newfront->interf) = NULL;
 
 	status = syncronize_time_step_status(status,front->pp_grid);
@@ -346,10 +337,8 @@ void	RI_get_minmax_radius(Front *);
 	max_comp = max_component(front->interf);
 
 	add_time_start(2);
-        printf("xiaoxue enter sweep\n");
 	for (k = 0; k < dim; ++k)
 	{
-            printf("xiaoxue sweep in %d direction\n", k);
 	    if(NO)
 	    {
 	        char  fname[200];
@@ -357,16 +346,11 @@ void	RI_get_minmax_radius(Front *);
 		sprintf(fname, "sweep%d", k);
 		tecplot_interior_ghost(fname, inwave[k]);
 	    }
-	    printf("xiaoxue before sweep in %d\n", k);
-            (*sweep)(k,iperm,dh[k],dt,inwave[k],outwave[k],
-		     infront[k],outfront[k],max_comp);
-            printf("xiaoxue after sweep in %d\n", k);
-	     if ( inwave[k]->redo_time_step == YES ){
-			inwave[k]->redo_time_step == NO;
-			(void) printf(" Redoing time step with smaller CFL number\n\n");
-			return MODIFY_TIME_STEP;
-	     }
+
 	    
+	    (*sweep)(k,iperm,dh[k],dt,inwave[k],outwave[k],
+		     infront[k],outfront[k],max_comp);
+
 	    if( debugging("hyp_states") )
 	    {
 	    	(void) printf("After %d%s sweep: outwave[%d] %p\n",
@@ -420,13 +404,11 @@ if(debugging("sample_speed"))
 		/* Copy updated front, wave */
 	if ((dim % 2) || (wave->min_storage == NO))
 	    assign_copy_wave_pointers(wave,outwave[dim-1]);
-	print_storage("@@@","HYP_storage");
 
 	/* Free temporary storage, update front */
 
 	if (tmpwave != NULL)
 	    free_copy_wave_pointers(tmpwave);
-	print_storage("@@@@","HYP_storage");
 
 	assign_interface_and_free_front(front,newfront);
 
@@ -434,7 +416,6 @@ if(debugging("sample_speed"))
 	    free_wave(wk_wv1);
 	if (wk_wv2 != NULL)
 	    free_wave(wk_wv2);
-	print_storage("@@@@@","HYP_storage");
 
 	stop_clock("hyp_solver");
 
@@ -467,7 +448,7 @@ if(debugging("sample_speed"))
         //#depo
         //if(front->step % 1000 == 0 || front->step == 5663 )
 
-        if(front->step % 10 == 0 )
+        if(front->step % 200 == 0 )
 	{
 	    char s[100];
             
@@ -475,8 +456,7 @@ if(debugging("sample_speed"))
             tecplot_interior_states(s, wave);
         }   
 	
-//	debug_print("hyp","Left hyp_split_driver()\n");
-        printf("Left hyp_split_driver()\n");
+	debug_print("hyp","Left hyp_split_driver()\n");
 	DEBUG_LEAVE(hyp_split_driver)
 	return status;
 }		/*end hyp_split_driver*/

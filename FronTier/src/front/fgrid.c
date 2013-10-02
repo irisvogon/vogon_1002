@@ -625,19 +625,29 @@ LOCAL	int set_grid_intfc_components3d(
 	xmax = gmax[0];   /*                   */
 	ymax = gmax[1];   /* global to tri3d.c */
 	zmax = gmax[2];   /*                   */
-    
+
 	for (i = 0; i < 3; ++i)
 	{
 	    smin[i] = 0;
 	    smax[i] = gmax[i];
-
 	}
 	if(prev_interface(intfc) != NULL)
 	{
+		//DEBUG_TMP printf("#set comp  %d  %d  %d, default_comp = %d \n", 
+		//DEBUG_TMP grid_intfc->surfaces, is_outside_surfaces(grid_intfc,gr), 
+		//DEBUG_TMP T->n_crx, grid_intfc->default_comp); 
+
+	//    if(grid_intfc->surfaces == NULL  ||  
+	//       is_outside_surfaces(grid_intfc,gr) ||
+	//       T->n_crx == 0)
+	//    {
 		prev_interface(grid_intfc) = prev_interface(intfc);
 		fill_comp_from_prev_intfc(grid_intfc, smin, smax);
 
 		intfc->default_comp = grid_intfc->default_comp;
+		//DEBUG_TMP printf("#default_comp = %d  prev_intfc = %d\n", 
+		//DEBUG_TMP		grid_intfc->default_comp, prev_interface(grid_intfc));
+	//    }
 	    if(debugging("default_prev"))
 	    {
 		printf("#prev_intfc %d\n", prev_interface(grid_intfc));

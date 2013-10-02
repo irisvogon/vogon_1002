@@ -630,9 +630,6 @@ EXPORT void g_fprint_Gas_param_list(
        
         if(intfc->dim == 3)
 	{
-            //add by xiaoxue
-            min_component(intfc) = 1;
-            max_component(intfc) = 7;
 	    //#bjet2
             (void) fprintf(file,"min_component = %d   max_component = %d\n",
                 min_component(intfc), max_component(intfc));
@@ -641,21 +638,15 @@ EXPORT void g_fprint_Gas_param_list(
 
 	for (comp = min_component(intfc); comp <= max_component(intfc); ++comp)
 	{
-//	    params = gas_params_for_comp(comp,intfc);
-            if(comp == 3)
-                (void) fprintf(file,"Component = %d Gas_param = %llu",comp, 1);
-            else
-                (void) fprintf(file,"Component = %d Gas_param = %llu",comp, 0);
-
-
-//	    (void) fprintf(file,"Component = %d Gas_param = %llu",comp,
-//	                   gas_param_number(params));
+	    params = gas_params_for_comp(comp,intfc);
+	    (void) fprintf(file,"Component = %d Gas_param = %llu",comp,
+	                   gas_param_number(params));
 #if defined(COMBUSTION_CODE)
-//	    if (params && params->composition_type != PURE_NON_REACTIVE)
-//	    {
-//	    	(void) fprintf(file," other_params = %llu",
-//	    		       gas_param_number(params->other_params));
-//	    }
+	    if (params && params->composition_type != PURE_NON_REACTIVE)
+	    {
+	    	(void) fprintf(file," other_params = %llu",
+	    		       gas_param_number(params->other_params));
+	    }
 #endif /* defined(COMBUSTION_CODE) */
 	    (void) fprintf(file,"\n\n");
 	}

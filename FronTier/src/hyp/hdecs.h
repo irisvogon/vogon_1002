@@ -148,8 +148,6 @@ enum {
 typedef struct {
 	bool		reg_stencil, prev_reg_stencil;
 	int		npts;
-        bool            *boundarystate_store;
-        bool            *boundarystate;
 	int		**icoords, **icoords_store;
 	int		*nc, *ncstore;
 	COMPONENT	newcomp;
@@ -268,8 +266,7 @@ struct _Wave {
 	} wave_pointers;
 
 	/* END TIME DYNAMIC STRUCTURES */
-	
-	bool	redo_time_step;	
+
 
 	/* TIME STATIC PARAMETERS */
 

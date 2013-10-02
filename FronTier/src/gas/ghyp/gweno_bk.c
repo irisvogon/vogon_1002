@@ -111,7 +111,6 @@ LOCAL	void	inner_prod ( float*, float*, float*, int);
 LOCAL	void	matrix_times_vector ( float*, float**, float*, int );
 LOCAL	void	g_update_point_ghost_cell(bool,bool,int, int*, bool,int,float**, float*, float*,float*,int,int,int,Vec_Gas*, Front *fr);
 LOCAL	void	Update_pressure_gam_c(int, int, float**,float*,float*,float*,Vec_Gas*);
-LOCAL	float  compute_arch_area(float, float);
 
 #if defined(DEBUG_MUSCL)
 LOCAL	const char **set_muscl_debugging(int,int*,int*,Tan_stencil*,Front*,int);
@@ -163,8 +162,7 @@ EXPORT void oned_WENO(
 	int        i, j, k, kmax;
 	int	   num_comps;
 	float 	   dtdni = dt/dn;
-	float dhh[3];
-	for( i = 0; i < 3; i++) dhh[i] = fr->rect_grid->h[i];
+	
 	sten_rad = 2;
 	kmax = dim+2;
 
@@ -192,27 +190,35 @@ EXPORT void oned_WENO(
 
 	if(sten == NULL) //oned_weno is called by vector_FD
 	{
-	    int pbuf = icoords[idirs[0]];
 	    /* Load state data into vst data structure*/
 	    g_load_VGas_state_vectors(offset,vsize,vst,dim);
 	
 	    /* States used in RK4 */
 	    start = sten_rad;
 	    end = vsize - sten_rad;
+
+	    /*print out the coodinate*/
+	    float *coordsxx;
+	    int icoordsxx[3];
+	    icoordsxx[0] = icoords[0];
+	    icoordsxx[1] = icoords[1];
+	    icoordsxx[2] = icoords[2];
+	    coordsxx = Rect_coords(icoordsxx,wave);
+//	    printf("coordsxx = [%f  %f  %f], icoordsxx = [%d  %d  %d]\n", coordsxx[0],coordsxx[1],coordsxx[2], icoordsxx[0],icoordsxx[1], icoordsxx[2]);
 	
-	    float **u;
-	    float **uu1, **uu2, **F_mid;
-	    float *p, *GAM, *c;
-	    bi_array( &u , kmax, vsize+2, sizeof(float) );  // Two is added for two additional  cells
-  	    bi_array( &uu1 , kmax, vsize+2, sizeof(float) );
-	    bi_array( &uu2 , kmax, vsize+2, sizeof(float) );
-	    bi_array( &F_mid , vsize+3, kmax, sizeof(float) );
-	    uni_array( &p, vsize+2, sizeof(float) );
-	    uni_array( &GAM, vsize+2, sizeof(float) );
-	    uni_array( &c, vsize+2, sizeof(float) );
+	float **u;
+	float **uu1, **uu2, **F_mid;
+	float *p, *GAM, *c;
+	bi_array( &u , kmax, vsize+2, sizeof(float) );  // Two is added for two additional  cells
+	bi_array( &uu1 , kmax, vsize+2, sizeof(float) );
+	bi_array( &uu2 , kmax, vsize+2, sizeof(float) );
+	bi_array( &F_mid , vsize+3, kmax, sizeof(float) );
+	uni_array( &p, vsize+2, sizeof(float) );
+	uni_array( &GAM, vsize+2, sizeof(float) );
+	uni_array( &c, vsize+2, sizeof(float) );
 	
-	   /* Copy states from vst to local arrays */
-	   for ( j = 0; j < vsize; j++){
+	/* Copy states from vst to local arrays */
+	for ( j = 0; j < vsize; j++){
 		u[0][j+1] = vst->rho[j+offset]; 
 		u[1][j+1] = vst->m[0][j+offset]; 
 		u[2][j+1] = vst->m[1][j+offset]; 
@@ -226,10 +232,10 @@ EXPORT void oned_WENO(
 		GAM[j+1]  = vst->GAM[j+offset];
 		c[j+1]  = vst->c[j+offset];
 		
-	    }
+	}
 	
-	    /*Add two extra ghost states at the end */
-	    for ( i = 0; i < kmax; i++){	
+	/*Add two extra ghost states at the end */
+	for ( i = 0; i < kmax; i++){	
 		u[i][0] = uu1[i][0] = uu2[i][0] = u[i][1];
 		u[i][vsize+1] = uu1[i][vsize+1] = uu2[i][vsize+1] = u[i][vsize];
 		
@@ -238,86 +244,13 @@ EXPORT void oned_WENO(
 
 		uu1[i][vsize] = uu2[i][vsize] = u[i][vsize];
 		uu1[i][vsize-1] = uu2[i][vsize-1] = u[i][vsize-1];
-	    }
-	    p[0] = p[1]; p[vsize+1] = p[vsize];
-	    GAM[0] = GAM[1]; GAM[vsize+1] = GAM[vsize];
-	    c[0] = c[1]; c[vsize+1] = c[vsize];
+	}
+	p[0] = p[1]; p[vsize+1] = p[vsize];
+	GAM[0] = GAM[1]; GAM[vsize+1] = GAM[vsize];
+	c[0] = c[1]; c[vsize+1] = c[vsize];
 
-	    start = sten_rad + 1;
-	    end = vsize - 1;
-		
-	    float *coordsxx = vst->coords[0];
-	    int icoordsxx[3];
-
-	    for(j = 0; j < vsize + 2; j++) 
-	    {
-		/*print out the coodinate*/
-		if(idirs[0] == 2)
-		{
-		    if( coordsxx[0]*coordsxx[0] + coordsxx[1]*coordsxx[1] < 0.099 *0.099 && coordsxx[2] + (j-1)*dhh[2] > 3.9)
-		   {
-//			printf(" in vector_FD nozzle treatment coords = [%f %f %f]\n", coordsxx[0],coordsxx[1],coordsxx[2]);
-			Locstate sl = NULL;
-			if ( sl == NULL )  g_alloc_state(&sl, fr->sizest);
-			set_type_of_state(sl,TGAS_STATE);
-			if( coordsxx[2] + (j - 1) *dhh[2] > 3.9 && coordsxx[2] + (j - 1)*dhh[2] < 4.0) 
-			{
-			    Press(sl) = 9.6;
-			    Dens(sl) = 9.5e-4;
-			    Vel(sl)[0] = 0.0;
-			    Vel(sl)[1] = 0.0;
-			    Vel(sl)[2] = -130.0;
-			    for(i = 0; i < 10; i++)
-				pdens(sl)[i] = 0.0;
-			    pdens(sl)[4] = Dens(sl);
-			    Set_params(sl,vst->state[2]);	
-			    int st_type = state_type(vst->state[2]);
-			    set_state(sl, st_type, sl);
-		      	    u[0][j] = Dens(sl);
-		      	    for( i = 1; i < 4; i++)u[i][j] = Mom(sl)[idirs[i-1]];
-		      	    u[4][j] = Energy(sl);
-		      	    for( i = 5; i < kmax; i++) u[i][j] = pdens(sl)[i-5];
-			}
-			else if(coordsxx[2] + (j - 1) *dhh[2] > 4.0 && coordsxx[2] + (j - 1)*dhh[2] < 4.1)
-			{
-			    Press(sl) = 16.7;
-			    Dens(sl) = 14.8e-4;
-			    Vel(sl)[0] = 0.0;
-			    Vel(sl)[1] = 0.0;
-			    Vel(sl)[2] = -90.0;
-			    for(i = 0; i < 10; i++)
-				pdens(sl)[i] = 0.0;
-			    pdens(sl)[4] = Dens(sl);
-			    Set_params(sl,vst->state[2]);	
-			    int st_type = state_type(vst->state[2]);
-			    set_state(sl, st_type, sl);
-		      	    u[0][j] = Dens(sl);
-		      	    for( i = 1; i < 4; i++)u[i][j] = Mom(sl)[idirs[i-1]];
-		      	    u[4][j] = Energy(sl);
-		      	    for( i = 5; i < kmax; i++) u[i][j] = pdens(sl)[i-5];
-			}
-			else
-			{
-			    Press(sl) = 21.3;
-			    Dens(sl) = 17.9e-4;
-			    Vel(sl)[0] = 0.0;
-			    Vel(sl)[1] = 0.0;
-			    Vel(sl)[2] = -56.0;
-			    for(i = 0; i < 10; i++)
-				pdens(sl)[i] = 0.0;
-			    pdens(sl)[4] = Dens(sl);
-			    Set_params(sl,vst->state[2]);	
-			    int st_type = state_type(vst->state[2]);
-			    set_state(sl, st_type, sl);
-		      	    u[0][j] = Dens(sl);
-		      	    for( i = 1; i < 4; i++)u[i][j] = Mom(sl)[idirs[i-1]];
-		      	    u[4][j] = Energy(sl);
-		      	    for( i = 5; i < kmax; i++) u[i][j] = pdens(sl)[i-5];				
-			}
-			free(sl);
-		   }
-		}
-	    }
+	start = sten_rad + 1;
+	end = vsize - 1;
 
 	/* Step 1 of RK3 */
 	update_pressure_soundspeed_gamma(fr, vst, 0, 0, vsize + 1, kmax, offset, u, p, c, GAM);
@@ -326,6 +259,14 @@ EXPORT void oned_WENO(
 	for ( j = start; j < end; j++ )
 		for ( i = 0; i < kmax; i++ )
 			uu1[i][j] = u[i][j] + dtdni*(F_mid[j][i] - F_mid[j+1][i]);
+	for( j = start; j < end; j++)
+	{
+		if ( isnan(uu1[4][j]) ){
+			for ( i = 0; i < kmax; i++)
+				printf("u[%d][%d] = %e  Fmid[%d][%d] = %e  Fmid[%d][%d] = %e\n",i,j,u[i][j],j,i,F_mid[j][i],j+1,i,F_mid[j+1][i]);
+			printf("\n");
+		}
+	}
 
 	/* Step 2 of RK3 */
 	update_pressure_soundspeed_gamma(fr, vst, 0, 0, vsize + 1,  kmax, offset, uu1, p, c, GAM);
@@ -333,16 +274,33 @@ EXPORT void oned_WENO(
 	for ( j = start; j < end; j++ )
 		for ( i = 0; i < kmax; i++ )
 			uu2[i][j] = 0.75*u[i][j] + 0.25*uu1[i][j] + 0.25*dtdni*(F_mid[j][i] - F_mid[j+1][i]);
+	for( j = start; j < end; j++)
+	{
+		if ( isnan(uu2[4][j]) ){
+			for ( i = 0; i < kmax; i++)
+				printf("uu1[%d][%d] = %e  Fmid[%d][%d] = %e  Fmid[%d][%d] = %e\n",i,j,uu1[i][j],j,i,F_mid[j][i],j+1,i,F_mid[j+1][i]);
+			printf("\n");
+		}
+	}
 	free(uu1);
 
 	/* Step 3 of RK3 */
 	update_pressure_soundspeed_gamma(fr, vst, 0, 0, vsize + 1, kmax, offset, uu2, p, c, GAM);
 	compute_weno_flux (fr, vst, start, end, sten_rad, vsize, num_comps, offset,idirs,uu2, p, GAM, c, F_mid);
 
+
 	for ( j = start; j < end; j++ )
 		for ( i = 0; i < kmax; i++ )
 			u[i][j] = (1.0/3.0)*u[i][j] + (2.0/3.0)*uu2[i][j] + (2.0/3.0)*dtdni*(F_mid[j][i] - F_mid[j+1][i]);
 
+	for( j = start; j < end; j++)
+	{
+		if ( isnan(u[4][j]) ){
+			for ( i = 0; i < kmax; i++)
+				printf("uu2[%d][%d] = %e  Fmid[%d][%d] = %e  Fmid[%d][%d] = %e\n",i,j,uu2[i][j],j,i,F_mid[j][i],j+1,i,F_mid[j+1][i]);
+			printf("\n");
+		}
+	}	
 
 	free(uu2);
 
@@ -358,18 +316,18 @@ EXPORT void oned_WENO(
 		
 		for ( i = 0; i < num_comps; i++ )
 			vst->rho0[i][j+offset] = u[5+i][j+1];
-
-		if(vst->rho[j + offset] < 0.0) clean_up(ERROR);
 	}
 
-	free(u);
-	free(F_mid );
-	free(p);
-	free(GAM);
-	free(c);
+	    free(u);
+	    free(F_mid );
+	    free(p);
+	    free(GAM);
+	    free(c);
 	}
 	else //oned_WENO is called by point_FD
 	{
+//	    printf("point_FD!\n");
+//	    printf("coords = [%f %f %f], icoords = [%f  %f %f]\n",Coords(sten->pstore[2])[0], Coords(sten->pstore[0])[1],Coords(sten->pstore[0])[2],  sten->icoords[0][0],sten->icoords[0][1],sten->icoords[0][2]);
 	    /* Whether we are calling point_FD at the upboundary*/
 	    bool upboundary;
 	    int **icoords = sten->icoords;
@@ -377,15 +335,20 @@ EXPORT void oned_WENO(
 	    icoordsp[0] = icoords[0][0];
 	    icoordsp[1] = icoords[0][1];
 	    icoordsp[2] = icoords[0][2];
+	    upboundary = YES;
 	    int comp = Rect_comp(icoordsp,wave);
 	    int sten_comp[5];
 	    for( i = 0; i < 5; i++)
 	    {
-			icoordsp[idirs[0]] = icoords[i-2][idirs[0]];
-			sten_comp[i] = Rect_comp(icoordsp,wave);
+		icoordsp[idirs[0]] = icoords[i-2][idirs[0]];
+		sten_comp[i] = Rect_comp(icoordsp,wave);
 	    }
-
-	    upboundary = YES;
+	    if( sten_comp[3] == sten_comp[4] && sten_comp[3] + sten_comp[4] == 6)
+		upboundary = 0;
+	    else if( sten_comp[0] == sten_comp[1] && sten_comp[0] + sten_comp[1] == 6)
+		upboundary = 1;
+	    else	
+	    printf(" the componet of the point_FD! comp = [%d  %d  %d  %d  %d]\n", sten_comp[0], sten_comp[1], sten_comp[2], sten_comp[3],sten_comp[4]);
 	
 	    bool inflow = 0;
 	    bool nozzle = 0;
@@ -393,7 +356,6 @@ EXPORT void oned_WENO(
 	    int inflow_indx;
 	    int ubuff = 3;
 	    int stencil_length = vsize + 3*ubuff - 2;
-
 	    if(sten_comp[0] == 7)
 	    {
 		inflow = 1;
@@ -405,37 +367,22 @@ EXPORT void oned_WENO(
 		inflow_indx = 2;
 	    }  
 
-	    if(!inflow)
-	    {
-
-	   	 if( sten_comp[3] == sten_comp[4] && sten_comp[3] + sten_comp[4] == 6)
-			upboundary = 0;
-	   	 else if( sten_comp[0] == sten_comp[1] && sten_comp[0] + sten_comp[1] == 6)
-			upboundary = 1;
-		    else	
-	    	printf(" the componet of the point_FD! comp = [%d  %d  %d  %d  %d]\n", sten_comp[0], sten_comp[1], sten_comp[2], sten_comp[3],sten_comp[4]);
-	    }
-
-	    //new nozzle implementation
-	    float rate;
-	    int   cover_by_nozzle;
-	    bool innozzle = NO;
-	    if( vst->coords[stencil_length - 3][0] * vst->coords[stencil_length - 3][0] + vst->coords[stencil_length - 3][1] * vst->coords[stencil_length - 3][1] < 0.1 * 0.1)
-		    innozzle = YES;
-	    compute_square_circle(0.0, 0.0, 0.1, vst->coords[stencil_length - 3][0], vst->coords[stencil_length - 3][1],dhh[0],dhh[1], &cover_by_nozzle, &rate);
-	    if( idirs[0] == 2 && vst->coords[stencil_length - 3][2] > 3.7 && (cover_by_nozzle == 1 || cover_by_nozzle == 0))
+	    float small = 0.001;
+	    if(vst->coords[stencil_length - 2][2] > 3.9 + small ||vst->coords[stencil_length - 3][2] > 3.9 + small)
 	    {
 		nozzle = YES;
-		if( vst->coords[stencil_length - 3][2] > 3.9 - dn &&  vst->coords[stencil_length - 3][2] < 3.9) nozzle_indx = 3;
-		else if(vst->coords[stencil_length - 3][2] > 3.9 && vst->coords[stencil_length - 3][2] < 3.9 + dn) nozzle_indx = 2;
-		else if(vst->coords[ stencil_length - 3][2] > 3.9 - 2*dn &&  vst->coords[stencil_length - 3][2] < 3.9- dn) nozzle_indx = 4;
-		else printf("error in the nozzle!\n");
-		printf("nozzle rate = %f  cover_by_noozle = %d coords = [%f  %f %f ] nozzle_indx = %d \n", rate, cover_by_nozzle,vst->coords[stencil_length - 3][0],vst->coords[stencil_length - 3][1],vst->coords[stencil_length - 3][2],nozzle_indx);
+		if(vst->coords[stencil_length - 3][2] > 3.9 + small) nozzle_indx = 2;
+		else nozzle_indx = 3;
+		//printf("nozzle_indx = %d\n",nozzle_indx);
 	    }
+	      
 	    float *coordsxx = vst->coords[9];
 	    
 	    /*Load state varibles into uu */
+	  //  int  stencil_length; // num of state in vst
 	    int  u_length; //num of state in u
+	  //  int  ubuff = 3;
+	  //  stencil_length = vsize + 3*ubuff - 2;
 
 	    /* Load state data into vst data structure*/
 	    g_load_VGas_state_vectors(offset,stencil_length,vst,dim);
@@ -453,9 +400,9 @@ EXPORT void oned_WENO(
 	    }
 	    else if(nozzle)
 	    {
-		num_cells_in_wall = 5 - nozzle_indx;
+		num_cells_in_wall = 4 - nozzle_indx;
 		ifwall = 7 + nozzle_indx - 1; 
-		Fmid_indx = ifwall + 1;
+	//	printf("num_cells_in_wall = %d\n",num_cells_in_wall);
 	    }
 	    else if(!upboundary)
 	    {
@@ -477,10 +424,10 @@ EXPORT void oned_WENO(
 		else
 		{
 		    printf("error! in point_FD in vst stencil in lowwwall\n");
-		    for( i = 0; i < 5; i++)
+		    /*for( i = 0; i < 5; i++)
 			printf("coords[%d] = [%f  %f  %f]\n", i, vst->coords[i][0], vst->coords[i][1],vst->coords[i][2]);
 		    for( i = 0; i < stencil_length; i++)printf("Nozzle[%d] = %d  ", i, Nozzle(vst->state[i]));printf("\n");
-		    printf(" Reflect state = [%d  %d  %d  %d  %d] Ramp_cellz = [%d  %d  %d  %d  %d]\n",Reflect_wall(vst->state[0]),Reflect_wall(vst->state[1]),Reflect_wall(vst->state[2]),Reflect_wall(vst->state[3]),Reflect_wall(vst->state[4]),Ramp_cellz(vst->state[0]),Ramp_cellz(vst->state[1]),Ramp_cellz(vst->state[2]),Ramp_cellz(vst->state[3]),Ramp_cellz(vst->state[4]));
+		    printf(" Reflect state = [%d  %d  %d  %d  %d] Ramp_cellz = [%d  %d  %d  %d  %d]\n",Reflect_wall(vst->state[0]),Reflect_wall(vst->state[1]),Reflect_wall(vst->state[2]),Reflect_wall(vst->state[3]),Reflect_wall(vst->state[4]),Ramp_cellz(vst->state[0]),Ramp_cellz(vst->state[1]),Ramp_cellz(vst->state[2]),Ramp_cellz(vst->state[3]),Ramp_cellz(vst->state[4]));*/
 		} 
 	    }
 	    else
@@ -502,7 +449,7 @@ EXPORT void oned_WENO(
 		else
 		{
 		    printf("error! in point_FD in vst stencil in upwall\n");
-		    for( i = 0; i < stencil_length; i++)printf("Nozzle[%d] = %d  ", i, Nozzle(vst->state[i]));printf("\n");
+		    //for( i = 0; i < stencil_length; i++)printf("Nozzle[%d] = %d  ", i, Nozzle(vst->state[i]));printf("\n");
 		    for( i = 0; i < 5; i++)
 			 printf("coords[%d] = [%f  %f  %f]\n", i, vst->coords[stencil_length - 1 - i][0], vst->coords[stencil_length - 1 - i][1],vst->coords[stencil_length - 1 - i][2]);
 		    printf(" Reflect state = [%d  %d  %d  %d  %d] Ramp_cellx = [%d  %d  %d  %d  %d]\n",Reflect_wall(vst->state[stencil_length - 1]),Reflect_wall(vst->state[stencil_length - 1 -1 ]),Reflect_wall(vst->state[stencil_length - 1 - 2]),Reflect_wall(vst->state[stencil_length - 1 - 3]),Reflect_wall(vst->state[stencil_length - 1 - 4]),Ramp_cellx(vst->state[stencil_length - 1]),Ramp_cellx(vst->state[stencil_length - 1 - 1]),Ramp_cellx(vst->state[stencil_length - 1 - 2]),Ramp_cellx(vst->state[stencil_length - 1 - 3]),Ramp_cellx(vst->state[stencil_length - 1 - 4]));
@@ -586,28 +533,37 @@ EXPORT void oned_WENO(
 		indx_ans_vst = 3*ubuff;
 	    }
 
-	    float nozzle_flux[5], old_nozzle_flux[5];//used to store the flux throught the nozzle
-	    for( i = 0; i < 5; i++) 
-	    {
-		    nozzle_flux[i] = 0.0;
-		    old_nozzle_flux[i] = 0.0;
-	    }
-	    
-	    /* Step 1 of RK3 */
+		/* Step 1 of RK3 */
 		g_update_point_ghost_cell(nozzle,inflow, swp_num,iperm,upboundary, kmax,u, p, GAM, c, num_ghost_cell,fcell,lcell,vst,fr);
 		update_pressure_soundspeed_gamma(fr, vst, indx_ans_vst, startp[0], endp[0], kmax, offset, u, p, c, GAM);
-
-		compute_weno_flux(fr,vst,startx[0],endx[0],sten_rad,vsize,num_comps,offset,idirs, u, p, GAM, c, F_mid);
-		if(boundary_cell){for(i = 0; i < kmax; i++){if( i!= 1) F_mid[Fmid_indx][i] = 0;}}
-		if (nozzle) 
-		if(nozzle && Fmid_indx == 10) {
-			if(innozzle){ for(i = 0; i < 5; i++) old_nozzle_flux[i] += F_mid[Fmid_indx][i]/6.0;}
-			for(i = 0; i < kmax; i++) F_mid[Fmid_indx][i] *=  rate;
-			F_mid[Fmid_indx][1] += p[Fmid_indx-1]*( 1- rate);
-			printf("1 Flux[%d] = %f  [%f  %f  %f] %f \n", Fmid_indx,F_mid[Fmid_indx][0],F_mid[Fmid_indx][1],F_mid[Fmid_indx][2],F_mid[Fmid_indx][3],F_mid[Fmid_indx][4]);
-			for(i = 0; i < 5; i++) nozzle_flux[i] += F_mid[Fmid_indx][i]/6.0;
+		for( i = startp[0]; i < endp[0];i++) 
+		{
+		    float sum_frac = 0.0;
+		    for( j = 5; j < kmax; j++) sum_frac += u[j][i];
+		    if( fabs(sum_frac - u[0][i]) > 100*MACH_EPS) 
+		    {
+			    printf("PARTIAL DENS not consistent1!\n");
+			    printf(" sum_frac = %f u[0][%d] = %f  ", sum_frac, i, u[0][i]);
+			    for( j = 5; j < kmax; j++) printf("%g  ", u[j][i]);
+			    printf("\n");
+		    }
 		}
+		compute_weno_flux(fr,vst,startx[0],endx[0],sten_rad,vsize,num_comps,offset,idirs, u, p, GAM, c, F_mid);
 
+		if(boundary_cell){for(i = 0; i < kmax; i++){if( i!= 1) F_mid[Fmid_indx][i] = 0;}}
+
+		for( j = startx[0]; j < endx[0] + 1; j++)
+		{
+			float sum_flux = 0.0;
+			for( i = 5; i < kmax; i++) sum_flux += F_mid[j][i];
+			if( fabs( sum_flux - F_mid[j][0]) > 1000*MACH_EPS)
+			{
+				printf("partial flux is not consistant!1\n");
+				printf(" sum_flux = %f F_mid[j][0] = %f  ", sum_flux, F_mid[j][0]);
+				for( i = 0; i < kmax; i++) printf("%g  ", F_mid[j][i]);
+					printf("\n");
+			}
+		}
 
 	for( j = startx[0]; j < endx[0]+1; j++)
 	{
@@ -625,15 +581,35 @@ EXPORT void oned_WENO(
 		/* Step 2 of RK3 */
 	   	g_update_point_ghost_cell(nozzle,inflow,swp_num,iperm,upboundary,kmax,uu1,p,GAM,c,num_ghost_cell, fcell,lcell,vst,fr);
 		update_pressure_soundspeed_gamma(fr, vst, indx_ans_vst,startp[1],endp[1], kmax, offset, uu1, p, c, GAM);
+		for( i = startp[1]; i < endp[1];i++) 
+		{
+		    float sum_frac = 0.0;
+		    for( j = 5; j < kmax; j++) sum_frac += uu1[j][i];
+		    if( fabs(sum_frac - uu1[0][i]) > 100*MACH_EPS) 
+		    {
+			    printf("PARTIAL DENS not consistent2!\n");
+			    printf(" sum_frac = %f uu1[0][%d] = %f  ", sum_frac, i, uu1[0][i]);
+			    for( j = 5; j < kmax; j++) printf("  %g", uu1[j][i]);
+			    printf("\n");
+		    }
+		}
+
+
 		compute_weno_flux(fr, vst,startx[1],endx[1], sten_rad, vsize, num_comps, offset, idirs, uu1, p, GAM, c, F_mid);
 		if(boundary_cell){for(i = 0; i < kmax; i++){if( i!= 1) F_mid[Fmid_indx][i] = 0;}}
-		if(nozzle && Fmid_indx == 10) { 
-			if(innozzle){ for(i = 0; i < 5; i++) old_nozzle_flux[i] += F_mid[Fmid_indx][i]/6.0;}
-			for(i = 0; i < kmax; i++) F_mid[Fmid_indx][i] *=  rate; 
-			F_mid[Fmid_indx][1] += p[Fmid_indx-1]*( 1- rate) ;
-			printf("2.Flux[%d] = %f  [%f  %f  %f] %f \n", Fmid_indx,F_mid[Fmid_indx][0],F_mid[Fmid_indx][1],F_mid[Fmid_indx][2],F_mid[Fmid_indx][3],F_mid[Fmid_indx][4]);
-			for(i = 0; i < 5; i++) nozzle_flux[i] += F_mid[Fmid_indx][i]/6.0;
+		for( j = startx[1]; j < endx[1] + 1; j++)
+		{
+			float sum_flux = 0.0;
+			for( i = 5; i < kmax; i++) sum_flux += F_mid[j][i];
+			if( fabs( sum_flux - F_mid[j][0]) > 1000*MACH_EPS)
+			{
+				printf("partial flux is not consistant!2\n");
+				printf(" sum_flux = %f F_mid[j][0] = %f ", sum_flux, F_mid[j][0]);
+				for( i = 0; i < kmax; i++) printf(" %g ", F_mid[j][i]);
+				printf("\n");
+			}
 		}
+
 	    	for( j = startx[0]; j < endx[1]+1; j++)
 		{
 			rhom = 0.5*(uu1[0][j-1] + uu1[0][j]);
@@ -650,20 +626,34 @@ EXPORT void oned_WENO(
 
 		/* Step 3 of RK3 */
 	   	g_update_point_ghost_cell(nozzle,inflow,swp_num, iperm, upboundary, kmax,uu2, p, GAM, c, num_ghost_cell, fcell,lcell, vst,fr);
-		update_pressure_soundspeed_gamma(fr, vst, indx_ans_vst, startp[2], endp[2], kmax, offset, uu2, p, c, GAM);
+			update_pressure_soundspeed_gamma(fr, vst, indx_ans_vst, startp[2], endp[2], kmax, offset, uu2, p, c, GAM);
+	    	for( i = startp[2]; i < endp[2];i++) 
+		{
+		    float sum_frac = 0.0;
+		    for( j = 5; j < kmax; j++) sum_frac += uu2[j][i];
+		    if( fabs(sum_frac - uu2[0][i]) > 100*MACH_EPS) 
+		    {
+			    printf("PARTIAL DENS not consistent3!\n");
+			    printf(" sum_frac = %f uu2[0][%d] = %f  ", sum_frac, i, uu2[0][i]);
+			    for( j = 5; j < kmax; j++) printf("  %g", uu2[j][i]);
+			    printf("\n");
+		    }
+		}
 		compute_weno_flux (fr, vst,startx[2],endx[2], sten_rad, vsize, num_comps, offset, idirs, uu2, p, GAM, c, F_mid);
 		if(boundary_cell){for(i = 0; i < kmax; i++){if( i!= 1) F_mid[Fmid_indx][i] = 0;}}
-		if(nozzle && Fmid_indx == 10) {
-			if(innozzle == 1){ for(i = 0; i < 5; i++) old_nozzle_flux[i] += 2.0*F_mid[Fmid_indx][i]/3.0;}
-			for(i = 0; i < kmax; i++) F_mid[Fmid_indx][i] *= rate; 
-			F_mid[Fmid_indx][1] += p[Fmid_indx-1]*(1.0 - rate);
-			printf("3.Flux[%d] = %f  [%f  %f  %f] %f \n", Fmid_indx,F_mid[Fmid_indx][0],F_mid[Fmid_indx][1],F_mid[Fmid_indx][2],F_mid[Fmid_indx][3],F_mid[Fmid_indx][4]);
-			for(i = 0; i < 5; i++) nozzle_flux[i] += F_mid[Fmid_indx][i]*2.0/3.0;
-			printf("\n");
-			printf("new flux = %f  [%f  %f  %f]  %f\n", nozzle_flux[0], nozzle_flux[1], nozzle_flux[2], nozzle_flux[3], nozzle_flux[4]);
-			printf("odl flux = %f  [%f  %f  %f]  %f\n", old_nozzle_flux[0], old_nozzle_flux[1], old_nozzle_flux[2], old_nozzle_flux[3], old_nozzle_flux[4]);
-			printf("\n");
+		for( j = startx[2]; j < endx[2] + 1; j++)
+		{
+			float sum_flux = 0.0;
+			for( i = 5; i < kmax; i++) sum_flux += F_mid[j][i];
+			if( fabs( sum_flux - F_mid[j][0]) > 1000*MACH_EPS)
+			{
+				printf("partial flux is not consistant!2\n");
+				printf(" sum_flux = %f F_mid[j][0] = %f ", sum_flux, F_mid[j][0]);
+				for( i = 0; i < kmax; i++) printf("  %g", F_mid[j][i]);
+				printf("\n");
+			}
 		}
+
 	    	for( j = startx[0]; j < endx[2]+1; j++)
 		{
 			rhom = 0.5*(uu2[0][j-1] + uu2[0][j]);
@@ -677,10 +667,27 @@ EXPORT void oned_WENO(
 		for ( j = startx[2]; j < endx[2]; j++)
 		    for ( i = 0; i < kmax; i++)
 			u[i][j] = (1.0/3.0)*u[i][j] + (2.0/3.0)*uu2[i][j] + (2.0/3.0)*dtdni*(F_mid[j][i] - F_mid[j+1][i]);
+
+/*		for( i = startx[2]; i < endx[2];i++) 
+		{
+		    float sum_frac = 0.0;
+		    for( j = 5; j < kmax; j++) sum_frac += u[j][i];
+		    if( fabs(sum_frac - 1.0) > 100*MACH_EPS) 
+		    {
+			    printf("PARTIAL DENS not consistent4!\n");
+			    printf(" sum_frac = %f ", sum_frac);
+			    for( j = 5; j < kmax; j++) printf("%g", u[j][i]);
+			    printf("\n");
+		    }
+		}
+*/
 		
 		free(uu1);
 		free(uu2);
 
+//		printf("sweep direction:%d\n", idirs[0]);
+//		printf("old: in_u = %d in_ans_vst = %d rho = %f u = [%f  %f  %f] Energy = %f\n",indx_ans_u, indx_ans_vst, vst->rho[indx_ans_vst],vst->m[0][indx_ans_vst]/vst->rho[indx_ans_vst], vst->m[1][indx_ans_vst]/vst->rho[indx_ans_vst] ,vst->m[2][indx_ans_vst]/vst->rho[indx_ans_vst] ,vst->en_den[indx_ans_vst]);
+//		printf("changes: in_u = %d in_ans_vst = %d rho = %f u = [%f  %f  %f] Energy = %f\n",indx_ans_u, indx_ans_vst, u[0][indx_ans_u] - vst->rho[indx_ans_vst],(u[1][indx_ans_u] -vst->m[0][indx_ans_vst])/vst->rho[indx_ans_vst], (u[2][indx_ans_u] - vst->m[1][indx_ans_vst])/vst->rho[indx_ans_vst] ,(u[3][indx_ans_u] -vst->m[2][indx_ans_vst])/vst->rho[indx_ans_vst] ,(u[4][indx_ans_u] - vst->en_den[indx_ans_vst]));
 		vst->rho[indx_ans_vst]= u[0][indx_ans_u] ; 
 		vst->m[0][indx_ans_vst] = u[1][indx_ans_u] ;
 		vst->m[1][indx_ans_vst] = u[2][indx_ans_u] ;
@@ -690,8 +697,7 @@ EXPORT void oned_WENO(
 		    vst->rho0[i-5][indx_ans_vst] = u[i][indx_ans_u];
 		start = indx_ans_vst;
 		end = indx_ans_vst + 1;
-		if(vst->rho[indx_ans_vst] < 0.0) clean_up(ERROR);
-		
+//		printf("new: in_u = %d in_ans_vst = %d rho = %f u = [%f  %f  %f] Energy = %f\n",indx_ans_u, indx_ans_vst, vst->rho[indx_ans_vst],vst->m[0][indx_ans_vst]/vst->rho[indx_ans_vst], vst->m[1][indx_ans_vst]/vst->rho[indx_ans_vst] ,vst->m[2][indx_ans_vst]/vst->rho[indx_ans_vst] ,vst->en_den[indx_ans_vst]);
 		free(u);
 		free(F_mid );
 		free(c);
@@ -718,6 +724,49 @@ EXPORT void oned_WENO(
 	    }
 	free(Flag);
 	
+	//xiaoxue
+	/*
+	int   idirs[3];
+	if((iperm != NULL && swp_num == -1) && (iperm == NULL && swp_num != -1)) 
+		printf("error in iperm.");
+
+	if( iperm!= NULL && swp_num != -1){
+	     for (i = 0; i < dim; ++i)
+	     	idirs[i] = iperm[(i+swp_num)%dim];
+	}
+	else{
+	    for (i = 0; i < dim; ++i) idirs[i] = i;
+	}
+
+	for ( j = start; j < end; j++){
+		if( Merge_cell(vst->state[j])  &&fr->turb_boundary_layer == YES && iperm != NULL && swp_num != -1 ){
+	    	i = 2*iperm[swp_num%3]; //sweep direction.
+	    	//density flux
+	    	Flux(vst->state[j])[i][0] = F_mid[j][0];
+	    	Flux(vst->state[j])[i+1][0] = F_mid[j+1][0];
+	    	flux_flag(vst->state[j]) = 1;
+	    	//energy flux
+	    	Flux(vst->state[j])[i][1] = F_mid[j][4];
+	    	Flux(vst->state[j])[i+1][1] = F_mid[j+1][4];
+	    	//momentum flux
+	    	for(k = 0; k < 3; k++){
+	    		Flux(vst->state[j])[i][idirs[k]+2]   = F_mid[j][k+1];
+	    		Flux(vst->state[j])[i+1][idirs[k]+2] = F_mid[j+1][k+1];
+	    	}
+	    	//partial density flux
+	    	for(k = 5; k < kmax; k++){
+			Flux(vst->state[j])[i][k]   = F_mid[j][k];
+			Flux(vst->state[j])[i+1][k] = F_mid[j+1][k];
+	    	}
+		}
+		else{
+
+			for ( k = 0; k < kmax; k++ ){
+				u[k][j] += dtdni * ( F_mid[j][k] - F_mid[j+1][k]);
+			}
+		}
+	}*/
+	
 	/*  Solve for and add chemistry source term */
         if( (swp_num == 2) /*&& (sten==NULL)*/)
 	{
@@ -734,20 +783,6 @@ EXPORT void oned_WENO(
 		coords = Rect_coords(ic,wave);
 		float T = temperature(vst->state[j]);
 		if(is_obstacle_state(vst->state[j])) printf("ERROR ! coords = [%f  %f  %f]\n",coords[0],coords[1],coords[2]);
-		//TMP_XY_weno
-		/*if ( (fabs(coords[0]-16.3)< 1e-1) &&
-			     (fabs(coords[1]+1.7)<1e-1) &&
-			     (fabs(coords[2]-2.4)<1e-1))	*/
-		if (Dens(vst->state[j]) < 1.e-9)
-		{
-		    printf("XY_weno_print: Coords = (%f, %f, %f)\n", coords[0], coords[1], coords[2]);
-		    printf("Temperature = %E\n", temperature(vst->state[j]));
-		    printf("Pressure = %E\n", pressure(vst->state[j]));
-		    printf("Internal energy = %E\n", internal_energy(vst->state[j]));
-		    printf("Density = %E\n", Dens(vst->state[j]));
-		    //printf("Molecular weight = %E\n", molecular_weight(vst->state[j]));
-		    printf("Momentum = %E, %E, %E\n", Mom(vst->state[j])[0], Mom(vst->state[j])[1], Mom(vst->state[j])[2]);
-		}
 
 		if (T>=200 && T <=3500 && !is_obstacle_state(vst->state[j]))
 		{
@@ -772,8 +807,8 @@ EXPORT void oned_WENO(
 			}*/
 			
                 	if (!ode_solver(ChemHeatSources,Y,0.0,dt,1,1.e-8,
-                	                 MACH_EPS*1.e-2,
-                	                 1.e-9,&istate,NULL))
+                	                 10*MACH_EPS,
+                	                 1.e-4,&istate,NULL))
                 	{
 			    printf("Before ODE crashes, energy = %E\n", vst->en_den[j]);
 			    for(k=0;k<10;k++)
@@ -832,7 +867,7 @@ LOCAL	void	g_update_point_ghost_cell(
 	int idirs[3];
 	for( i = 0; i < 3; i++)
 	    idirs[i] = iperm[(i + swp_num)%dim];
-	if(inflow)
+	if(inflow && !upboundary)
 	{
 		for( i = 0; i < num_ghost_cell; i++)
 		{
@@ -844,57 +879,33 @@ LOCAL	void	g_update_point_ghost_cell(
 
 	if(nozzle)
 	{
-	    Locstate sl = NULL;
-	    if ( sl == NULL )  g_alloc_state(&sl, fr->sizest);
-	    set_type_of_state(sl,TGAS_STATE);
-	    Set_params(sl,vst->state[7]);
- 	    Press(sl) = 12.0;
-	    Dens(sl) = 13e-4;
-	    Vel(sl)[0] = 0.0;
-	    Vel(sl)[1] = 0.0;
-	    Vel(sl)[2] = -130.0;
-	    for(i = 0; i < 10; i++)
-		pdens(sl)[i] = 0.0;
-	    pdens(sl)[4] = Dens(sl);
-	    set_state(sl,GAS_STATE,sl);
-      	    u[0][end + 1] = Dens(sl);
-      	    for( i = 1; i < 4; i++)u[i][end+1] = Mom(sl)[idirs[i-1]];
-     	    u[4][end + 1] = Energy(sl);
-      	    for( i = 5; i < kmax; i++) u[i][end+1] = pdens(sl)[i-5];
+		//printf("nozzle! end + 1 = %d end + num_ghost_cell = %d\n", end + 1, end + num_ghost_cell);
+		Locstate sl = NULL;
+		if ( sl == NULL )  g_alloc_state(&sl, fr->sizest);
+		set_type_of_state(sl,TGAS_STATE);
+		Press(sl) = 12.5;
+		Dens(sl) = 12.3e-4;
+		Vel(sl)[0] = 0.0;
+		Vel(sl)[1] = 0.0;
+		Vel(sl)[2] = -123.0;
+		for(i = 0; i < 10; i++)
+			pdens(sl)[i] = 0.0;
+		pdens(sl)[4] = Dens(sl);
+		Set_params(sl,vst->state[9]);	
+		int st_type = state_type(vst->state[9]);
+		set_state(sl, st_type, sl);
 
-	    set_state(sl, TGAS_STATE,sl);
-	    Press(sl) = 16.7;
-	    Dens(sl) = 14.8e-4;
-	    Vel(sl)[0] = 0.0;
-	    Vel(sl)[1] = 0.0;
-	    Vel(sl)[2] = -90.0;
-	    for(i = 0; i < 10; i++)
-		pdens(sl)[i] = 0.0;
-	    pdens(sl)[4] = Dens(sl);
-	    set_state(sl,GAS_STATE,sl);
-	     u[0][end + 2] = Dens(sl);
-    	    for( i = 1; i < 4; i++)u[i][end + 2] = Mom(sl)[idirs[i-1]];
-      	    u[4][end + 2] = Energy(sl);
-      	    for( i = 5; i < kmax; i++) u[i][end + 2] = pdens(sl)[i-5];
-
-	    set_state(sl, TGAS_STATE,sl);
-	    Press(sl) = 21.3;
-	    Dens(sl) = 17.9e-4;
-	    Vel(sl)[0] = 0.0;
-	    Vel(sl)[1] = 0.0;
-	    Vel(sl)[2] = -56.0;
-	    for(i = 0; i < 10; i++)
-		pdens(sl)[i] = 0.0;
-	    pdens(sl)[4] = Dens(sl);
-	    set_state(sl,GAS_STATE,sl);
-     	    u[0][end + 3] = Dens(sl);
-      	    for( i = 1; i < 4; i++)u[i][end + 3] = Mom(sl)[idirs[i-1]];
-      	    u[4][end + 3] = Energy(sl);
-      	    for( i = 5; i < kmax; i++) u[i][end + 3] = pdens(sl)[i-5];				
-	    free(sl);
-	    return;
+		for( i = end + 1; i < end + num_ghost_cell + 1; i++)
+		{
+		      u[0][i] = Dens(sl);
+		      for( j = 1; j < 4; j++)u[j][i] = Mom(sl)[idirs[j-1]];
+		      u[4][i] = Energy(sl);
+		      for( j = 5; j < kmax; j++) u[j][i] = pdens(sl)[j-5];
+//		      printf(" i = %d  u = %f  %f  %f  %f  %f\n", i, u[0][i], u[1][i], u[2][i], u[3][i], u[4][i]);
+		}
+		return;
 	}
-
+	if(inflow && upboundary) printf("ERROR!\n");
 	    float nvec[3], nnvec[3];
 	    float u_times_nnvec ;
 //	    printf("idirs = [%d  %d  %d]  iperm = [%d  %d  %d] swp_num = %d \n", idirs[0], idirs[1], idirs[2], iperm[0], iperm[1], iperm[2], swp_num);
@@ -1026,6 +1037,7 @@ LOCAL	void	Update_pressure_gam_c(int start, int end, float** u, float* p, float*
 	return;
 }
 	
+
 LOCAL	void	compute_weno_flux ( Front* fr, Vec_Gas* vst, int start, int end, int sten_rad,int vsize, int num_comps, int offset, int *idirs,  float** u, float* p, float* GAM, float* c, float** F_mid)
 {
 	float	   **L, **R;		// Left and Right eigenvector matrices.
@@ -1048,8 +1060,7 @@ LOCAL	void	compute_weno_flux ( Front* fr, Vec_Gas* vst, int start, int end, int 
 	float	   GAMm;		// Gruneisen coefficient at midstate.
 	float	   *mom0, *mom1, *mom2, *rho, *en_den;  // State variables at cell centers
 	float	   vm0, vm1, vm2, cm, rhom, pm, hm;	// State variables at midstate.
-	float	   rhom0[num_comps];
-	Locstate   midst = NULL;	
+	float	   rhom0[num_comps];				
 	
 	int	   s;			// Index in characteristic space.
 
@@ -1078,12 +1089,6 @@ LOCAL	void	compute_weno_flux ( Front* fr, Vec_Gas* vst, int start, int end, int 
 	/* Compute fluxes at cell centers and store in F_old*/
 	load_state_fluxes(F_old, start- 3, end + 3, u, p);
 	
-	//TMP_XY_weno
-	int i = 0, j = 0;
-	/* Initialize maximum eigenvalues */
-	for (i = 0; i < 5; ++i)
-	    maxeig[i] = -HUGE_VAL;
-	
 	/* Compute maximum eigenvalues */
 	for ( j = start; j < end; j++ ){
 		maxeig[0] = max( maxeig[0], fabs( mom0[j]/rho[j] - c[j] ));
@@ -1092,43 +1097,18 @@ LOCAL	void	compute_weno_flux ( Front* fr, Vec_Gas* vst, int start, int end, int 
 	}
 	maxeig[2] = maxeig[3] = maxeig[1];
 
-	if ( midst == NULL)
-		g_alloc_state(&midst,fr->sizest);
-	set_type_of_state(midst,GAS_STATE);
-
 	/* Main loop to compute weno fluxes used to update states 
 	   for the next time step. */
 	for ( j = start; j < end + 1; j++){
 		/* Compute midstate variables, Equation (4.1),
 		   by averaging two adjacent states */
-		Set_params(midst,vst->state[j]);
-		Dens(midst) = rhom = 0.5 * ( rho[j-1] + rho[j] );
-		Mom(midst)[0] = 0.5 * ( mom0[j-1] + mom0[j] );
-		Mom(midst)[1] = 0.5 * ( mom1[j-1] + mom1[j] );
-		Mom(midst)[2] = 0.5 * ( mom2[j-1] + mom2[j] );
-		Energy(midst) = 0.5 * ( en_den[j-1] + en_den[j] );
-		
-		/* Set mid state mass fractions and partial densities */
-		for ( i = 0; i < num_comps; i++){
-			pdens(midst)[i] = 0.5 * (u[5+i][j-1] + u[5+i][j]);	// partial density 
-			rhom0[i] = pdens(midst)[i] / Dens(midst);		// mass fraction
-		}
-		
-		/*rhom = 0.5 * (rho[j-1] + rho[j]);
+		rhom = 0.5 * (rho[j-1] + rho[j]);
 		pm = 0.5 * ( p[j-1] + p[j] );
 		vm0 = 0.5 * ( mom0[j-1] + mom0[j] ) / rhom;
 		vm1 = 0.5 * ( mom1[j-1] + mom1[j] ) / rhom;
-		vm2 = 0.5 * ( mom2[j-1] + mom2[j] ) / rhom;		
+		vm2 = 0.5 * ( mom2[j-1] + mom2[j] ) / rhom;
 		GAMm = 0.5 * ( GAM[j-1] + GAM[j] );
-		cm = sqrt( (GAMm+1.0)*pm/rhom );
-		hm = 0.5*(vm0*vm0 + vm1*vm1 + vm2*vm2) + (GAMm+1.0)*pm/(GAMm*rhom);*/
-
-		pm = pressure( midst );
-		vm0 = Mom(midst)[0] / Dens(midst);
-		vm1 = Mom(midst)[1] / Dens(midst);
-		vm2 = Mom(midst)[2] / Dens(midst);
-		GAMm = gruneisen_gamma( midst );
-		cm = sound_speed( midst );
+		cm = sqrt( (GAMm+1.0)*pm/rhom );//0.5*( c[j-1] + c[j] );
 		hm = 0.5*(vm0*vm0 + vm1*vm1 + vm2*vm2) + (GAMm+1.0)*pm/(GAMm*rhom);
 		
 		/* Load right eigenvector matrix */
@@ -1197,6 +1177,9 @@ LOCAL	void	compute_weno_flux ( Front* fr, Vec_Gas* vst, int start, int end, int 
 			for ( k = 0; k < 5; k++ )
 				L[i][k] *= GAMm / (2.0*cm*cm) ;
 
+		/* Set mid state mass fractions */
+		for ( i = 0; i < num_comps; i++)
+			rhom0[i] = (u[5+i][j-1] + u[5+i][j])/(u[0][j-1] + u[0][j]);
 
 		/* Flux Splitting */
 		for ( i = 0; i < 6; i++){
@@ -1253,7 +1236,6 @@ LOCAL	void	compute_weno_flux ( Front* fr, Vec_Gas* vst, int start, int end, int 
 	}
 
 	/* Free memory */
-	free( midst );
 	free( maxeig );
 	free( Fm_plus );
 	free( Fm_minus );
@@ -1268,7 +1250,6 @@ LOCAL	void	compute_weno_flux ( Front* fr, Vec_Gas* vst, int start, int end, int 
 	free( R );
 
 }
-
 LOCAL	void	update_pressure_soundspeed_gamma(Front* fr, Vec_Gas* vst, int indx, int start, int end, int kmax, int offset, float** u, float* p, float* c,float* GAM)
 {
 	Locstate tmpst = NULL;
@@ -1295,6 +1276,14 @@ LOCAL	void	update_pressure_soundspeed_gamma(Front* fr, Vec_Gas* vst, int indx, i
 		p[i] = pressure(tmpst);
 		GAM[i] = gruneisen_gamma(tmpst);
 		c[i] = sqrt( sound_speed_squared(tmpst) );
+		if ( isnan(c[i]) ){ 
+			printf("NAN sound speed in updates step!\n");
+			printf("GAM = %e\n",GAM[i]);
+			printf("rho = %e, rho-1 = %e, rho+1 =%e, rho =%e\n",Dens(tmpst),u[0][i-1],u[0][i+1],u[0][i]);
+			printf("ie = %e\n",internal_energy(tmpst));
+			for ( j = 0; j < kmax; j++)
+				printf("u[%d][%d] = %e\n",j,i,u[j][i]);
+		}
 	}
 	free ( tmpst );
 }
@@ -1656,8 +1645,8 @@ EXPORT void oned_MUSCL(
 			printf("At coords: (%f, %f, %f)\n", coords[0], coords[1], coords[2]);*/
 
                 	if (!ode_solver(ChemHeatSources,Y,0.0,dt,1,1.e-8,
-                	                 MACH_EPS*1.e-2,
-                	                 1.e-9,&istate,NULL))
+                	                 10*MACH_EPS,
+                	                 1.e-4,&istate,NULL))
                 	{
 			    printf("Before ODE crashes, energy = %E\n", ucon[1][j]);
 			    for(k=0;k<10;k++)
@@ -5544,8 +5533,8 @@ EXPORT  void Set_up_merge_cell(
                     state  = Rect_state(icoords,wave);		
 		    if(coords[2] < ramp_z1 && coords[2] > ramp_z0)
 		    {
-			float xramp = (coords[2] - ramp_z0)/tan10 - ramp_x0;
-			if(!is_obstacle_state(state) &&coords[0] < xramp && coords[0] + dh[0] > xramp)
+			float xramp = (coords[2] - ramp_z0)/tan10 + ramp_x0;
+			if(!is_obstacle_state(state) && coords[0] < xramp && coords[0] + dh[0] > xramp)
 			{
 				Ramp_cellx(state) = YES;
 			}
@@ -5567,6 +5556,7 @@ EXPORT  void Set_up_merge_cell(
 		        icoords[2] = k;
                         state  = Rect_state(icoords,wave);
                         coords = Rect_coords(icoords,wave);
+			/*
 			if(!is_obstacle_state(state) && coords[0] > GL[0] && coords[0] < GL[0] + dh[0])
 				Inlet(state) = YES;
 			else Inlet(state) = NO;
@@ -5574,21 +5564,22 @@ EXPORT  void Set_up_merge_cell(
 			 if(!is_obstacle_state(state) &&coords[0] < GU[0] && coords[0] > GU[0] - dh[0])
 				 Outlet(state) = YES;
 			 else  Outlet(state) = NO;
+			*/
 
 			  if(!is_obstacle_state(state) &&coords[2] < 3.9 && coords[2] > 3.9 - dh[2] && sqrt(coords[0]*coords[0] + coords[1]*coords[1]) > 0.1)
 				   Reflect_wall(state) = YES;
-			  else if(!is_obstacle_state(state) &&(coords[0] > ramp_x1 && coords[2] > 2.4  && coords[2] <  2.4 +  dh[2])||(coords[0] <ramp_x0 && coords[2] > 1.6 && coords[2] < 1.6 + dh[2]))  
+			  else if(!is_obstacle_state(state) &&(coords[0] > ramp_x1 && coords[2] > ramp_z1  && coords[2] <  ramp_z1 +  dh[2])||(coords[0] <ramp_x0 && coords[2] > ramp_z0 && coords[2] < ramp_z0 + dh[2]))  
 			  {
 				  Reflect_wall(state) = YES;
 			   }
-			
+			/*
 			if(!is_obstacle_state(state) && coords[2] > 3.9 && coords[2] < 3.9 + dh[2] && sqrt(coords[0]*coords[0] + coords[1]*coords[1]) < 0.1)
 			{
 				Nozzle(state) = YES;
 				printf("coords = [%f  %f  %f]\n", coords[0], coords[1], coords[2]);
 			}
 			else
-				Nozzle(state) = NO;
+				Nozzle(state) = NO;*/
 
 		    	dist_z = coords[2] - (ramp_z0 + tan10*(coords[0] - ramp_x0));
 			if (dist_z > 0 && dist_z < 1.5*dh[2] && coords[0] > ramp_x0 && coords[0] < ramp_x1&& !is_obstacle_state(state))
@@ -5741,9 +5732,8 @@ EXPORT  void Update_merge_cell(
                     	    oned_turbulence_boundarylayer_solver(dim,uvel[0],uvel[1],uvel[2],y0,yw,flux,state2);
 			compute_square_circle(0,0,0.099,coords[0],coords[1],0.5*dh[0],0.5*dh[0],&cover_by_nozzle, &rate);
 			for( i = 0; i < 3; i++)
-				Mom(state)[i] += (1 - rate) *flux[i + 1]*dt/dh[2];
-			if( rate > 0) printf("update boundary ! coords = [%f  %f] 1- rate = %f \n", coords[0],coords[1], 1- rate);
-			Energy(state) += ( 1- rate) *flux[0]*dt/dh[2];
+				Mom(state)[i] += rate*flux[i + 1]*dt/dh[2];
+			Energy(state) += rate*flux[0]*dt/dh[2];
 
 			    Boundary_flux(state)[0] = flux[0];
 			    Boundary_flux(state)[1] = flux[1];
@@ -5936,9 +5926,10 @@ void turbulent_inflow(
 	//Initialize and store random fields of dimension
 	float**** random_numbers;
 	quad_array(&random_numbers, 3, 2*NFx+1, My+2*NFy, Mz+2*NFz, sizeof(float) );
-	unsigned short int seed[3]={pp_mynode()+front->step,pp_mynode()+front->step,pp_mynode()+front->step};
-
-        for(d=0;d<dim;++d)
+	//float random_numbers[3][2*NFx+1][My+2*NFy][Mz+2*NFz];
+        unsigned short int seed[3]={pp_mynode()+front->step,pp_mynode()+front->step,pp_mynode()+front->step};
+        
+	for(d=0;d<dim;++d)
         {
             for(i=0; i<2*NFx+1; ++i)
 	    {
@@ -5977,16 +5968,10 @@ void turbulent_inflow(
 		get_constant_state(st, 2, coords, front->time);
 	      if(coords[0]> (front->rect_grid->GU[0]-dh) && !is_obstacle_state(st))
 	      {
-	//	printf("#TK-out coords %f %f %f \n",coords[0], coords[1], coords[2]);
-	//	verbose_print_state("#TK-out",st);
 		st_type = state_type(st);
 		set_state(st, TGAS_STATE, st);
-	//printf("#TK-wall_pressure_avg = %f\n",wall_pressure_avg);
 		Press(st) = wall_pressure_avg;
-	//	Press(st) = 2;
-	//	verbose_print_state("#TK-out-newT",st);
 		set_state(st, st_type, st);
-	//	verbose_print_state("#TK-out-newG",st);
 	      }	
 
 	    }	
@@ -6005,8 +5990,6 @@ void turbulent_inflow(
 
 	      st = Rect_state(icoords, wave);
 		
-//  	      if(is_obstacle_state(st))
-//		 printf("#TMP_TK st is obstacle %d %d %d\n",icoords[0],j,k);
 	      for(d=0; d<3; ++d)
 	         Vel_Field(st)[d] = 0.0; 	
 	     }
@@ -6034,15 +6017,12 @@ void turbulent_inflow(
               for(m=0; m<2*NFy+1; ++m)
                  for(n=0; n<2*NFz+1; ++n)
            	    u_field[d][j][k] += b_x[l]*b_y[m]*b_z[n]*random_numbers[d][l][j+m][k+n];
-
-	      u_perturb[d][j][k] = Vel_Field(st)[d]*filter_exp2 + u_field[d][j][k]* filter_exp1;
+	      	    u_perturb[d][j][k] = Vel_Field(st)[d]*filter_exp2 + u_field[d][j][k]* filter_exp1;
 	    }	
 	  }	
 
 	//Prescribed Reynolds stress tensor (isotropic)
 	S11= S22 = S33 = (intensity)*(intensity)*u_x*u_x/3; 
-//printf("#TMP_TK sqrt(S11)=%f My=%d Mz=%d GLx=%f\n",sqrt(S11),My,Mz,GLx);
-//printf("#TMP_TK filter_exp1=%f filter_exp2=%f PI=%f \n",filter_exp1,filter_exp2,PI);
 
 	icoords[0] = 0;
 	for(j=0; j<My; ++j)
@@ -6054,7 +6034,6 @@ void turbulent_inflow(
 
 	  	coords = Rect_coords(icoords, wave);
 	    	st = Rect_state(icoords, wave);
-//	    printf("#TMP_TK coords[0]=%f\n",coords[0]);	
 	    if(coords[0] < GLx+(icoords[0]+1)*dh && coords[2]>(front->rect_grid->GL[2]+0.1+dh) && coords[2]<(front->rect_grid->GU[2]-0.1-dh))
 	    {
 	      if(!is_obstacle_state(st))
@@ -6066,33 +6045,15 @@ void turbulent_inflow(
 	    	Vel(st)[1] = sqrt(S22)*u_perturb[1][j][k];
 	    	Vel(st)[2] = sqrt(S33)*u_perturb[2][j][k];
 
-
-//printf("0-%d-%d coords[0]=%f\n",j,k,coords[0]);
-
-//printf("0-#TMP_TK Vel_Field(st)=(%f %f %f)\n",Vel_Field(st)[0],Vel_Field(st)[1],Vel_Field(st)[2]);
-//printf("1-#TMP_TK u_field(st)=(%f %f %f)\n",u_field[0][j][k],u_field[1][j][k],u_field[2][j][k]);
-
-//printf("0-1-#TMP_TK u_perturb(st)=(%f %f %f)\n",u_perturb[0][j][k],u_perturb[1][j][k],u_perturb[2][j][k]);
-
-//printf("before#TMP_TK Vel(st)=(%f %f %f)\n",Vel(st)[0],Vel(st)[1],Vel(st)[2]);
-
-//	    	Vel(st)[0] += sqrt(S11)*u_perturb[0][j][k];
-//	    	Vel(st)[1] += sqrt(S22)*u_perturb[1][j][k];
-//	    	Vel(st)[2] += sqrt(S33)*u_perturb[2][j][k];
-//printf("after#TMP_TK Vel(st)=(%f %f %f)\n",Vel(st)[0],Vel(st)[1],Vel(st)[2]);
-	
 	     	Vel_Field(st)[0] = u_field[0][j][k]; 	
 		Vel_Field(st)[1] = u_field[1][j][k]; 	
 		Vel_Field(st)[2] = u_field[2][j][k]; 	
 
-/*TMP_TK TMP_XG 101212 */ 
 	        Press(st) = 0.4;
-//		Dens(st) = 8.7e-5;
 		Dens(st) = 12.41e-5;
                 for(i = 0; i < Params(st)->n_comps; i++)
                     pdens(st)[i] = 0.0;
                 pdens(st)[0] = Dens(st);
-/*TMP_TK TMP_XG 101212 */ 
 
 		set_state(st, st_type, st);
 	      }
@@ -6155,12 +6116,12 @@ LOCAL	void compute_square_circle(
 	if( (xf - xc)*(xf - xc) + (yf - yc)*(yf - yc) < radius*radius)//The square lies in the nozzle
 	{
 	    *cover_by_nozzle = 1;
-	    *rate = 1.0;
+	    *rate = 0.0;
 	}
 	else if( (xn - xc)*(xn - xc) + (yn - yc)*(yn - yc) > radius*radius)// The square lies out the nozzle
 	{
 	    *cover_by_nozzle = -1;
-	    *rate = 0.0;
+	    *rate = 1.0;
 	}
 	else //part of the square is in the nozzle
 	{
@@ -6189,7 +6150,6 @@ LOCAL	void compute_square_circle(
 	
 	    int ri,rj;
 	    int test=0;
-	float archl,arch_area;
 	for(i = 0; i < 2; i++)
 	{
 	   for( j = 0; j < 2; j ++)
@@ -6213,33 +6173,25 @@ LOCAL	void compute_square_circle(
 		   {
 			l0 = fabs(sq[i][j][0] - xc) - sqrt( radius*radius - (sq[i][j][1] - yc)*(sq[i][j][1] - yc));
 			l1 = fabs( sq[i][j][1] - yc) - sqrt( radius*radius - (sq[i][j][0] - xc)*(sq[i][j][0] - xc));
-			archl = sqrt(l0*l0 + l1*l1);
-			arch_area = compute_arch_area(radius,archl);
-			*rate = 1 - 0.5*l0*l1/(xl*yl) + arch_area/(xl*yl);
+			*rate = 1 - 0.5*l0*l1/(xl*yl);
 		   }
 		   else if( cover[i][rj] == 1 && cover[ri][j] == 0)
 		   {
 			l0 = sqrt(radius*radius - (sq[i][j][0] - xc)*(sq[i][j][0] - xc)) - fabs(sq[ri][rj][1] - yc);	
 			l1 = sqrt(radius*radius - (sq[ri][rj][0] - xc)*(sq[ri][rj][0] - xc)) - fabs(sq[ri][rj][1] - yc);
-			archl = sqrt((l0- l1)*(l0 - l1) + xl*xl);
-			arch_area = compute_arch_area(radius, archl);
-			*rate = ( 0.5*(l0 + l1)*xl + arch_area)/(xl*yl) ;
+			*rate = 0.5*(l0 + l1)*xl/(xl*yl);
 		   }
 		   else if(cover[i][rj] == 0 && cover[ri][j] == 1)
 		   {
 			l0 = sqrt( radius * radius - (sq[ri][j][1] - yc)*(sq[ri][j][1] - yc)) - fabs(sq[ri][j][0] - xc);
 			l1 = sqrt( radius * radius - (sq[ri][rj][1] - yc)*(sq[ri][rj][1] - yc)) - fabs(sq[ri][rj][0] - xc);
-			archl = sqrt((l0- l1)*(l0 - l1) + yl*yl);
-			arch_area = compute_arch_area(radius, archl);			
-			*rate = ( 0.5*(l0+l1)*yl + arch_area)/(xl*yl);
+			*rate = 0.5*(l0+l1)*yl/(xl*yl);
 		   }
 		   else
 		   {
 			l0 = sqrt(radius * radius - (sq[ri][rj][1] - yc)*(sq[ri][rj][1] - yc)) - fabs(sq[ri][rj][0] - xc);
 			l1 = sqrt(radius * radius - (sq[ri][rj][0] - xc)*(sq[ri][rj][0] - xc)) - fabs(sq[ri][rj][1] - yc);
-			archl = sqrt(l0*l0 + l1*l1);
-			arch_area = compute_arch_area(radius, archl);
-			*rate = (0.5*l0*l1 + arch_area)/(xl*yl);
+			*rate = 0.5*l0*l1/(xl*yl);
 		   }
 		}
 	    }
@@ -6247,6 +6199,7 @@ LOCAL	void compute_square_circle(
 	}
 	if(*rate <0 || *rate > 1.0) printf("error! area less than 0 or area largier than 1\n");
 	return;
+
 }
 
 #define min(a,b) (((a)<(b))?(a):(b))
@@ -6322,17 +6275,6 @@ double average_p_if_mach(Wave *wave, Grid *grid)
     wall_pressure_avg = p_avg; // Set the global variable
 	printf("wall_pressure_avg = %f\n",p_avg);
     return p_avg;
-}
-
-float  compute_arch_area(
-		float r,
-		float archl)
-{
-	float angle = asin(0.5*archl/r);
-	float h = sqrt(r*r - 0.25 * archl* archl);
-	float area =  angle*r*r  - 0.5*h*archl;
-	if( area < 0.0) printf("error ! r = %f archl = %f  angle = %f h = %f  area = %f\n", r, archl, angle, h, area);
-	return area;
 }
 
 #endif /* defined(DEBUG_MUSCL) */

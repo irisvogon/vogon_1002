@@ -878,8 +878,8 @@ LOCAL	int set_posn_and_states(
 				    sten->rightst[index])
 					!= FUNCTION_SUCCEEDED))
 	{
-//	    screen("ERROR in set_posn_and_states(), "
-//		   "tri_interpolate_states() failed\n");
+	    screen("ERROR in set_posn_and_states(), "
+		   "tri_interpolate_states() failed\n");
 	}
 
 	return (limit < 0) ? --index : ++index;

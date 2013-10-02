@@ -1866,47 +1866,7 @@ EXPORT bool g_tetra_interpolator(
 	int		dim;
 	int		i,j;
 
-        //xiaoxue
-        bool stateset = 0;
 	for (i = 1; i < 4; i++)
-	{
-          if (is_obstacle_state(s[i]))
-              continue;
-          stateset = 1;
-	Set_params(ans,s[i]); 
-	set_type_of_state(ans,GAS_STATE);
-	dim = Params(ans)->dim;
-
-	Dens(ans) = 0.0;
-        if(g_composition_type() == MULTI_COMP_NON_REACTIVE)
-        {
-            if(Params(ans)->n_comps != 1)
-            {
-                for(i = 0; i < Params(ans)->n_comps; i++)
-                    pdens(ans)[i] = 0.0;     
-            }
-        }
-	Energy(ans) = 0.0;
-	for (j = 0; j < dim; j++)
-	Mom(ans)[j] = 0.0;
-	Dens(ans) = Dens(s[i]);
-        if(g_composition_type() == MULTI_COMP_NON_REACTIVE)
-        {
-	   int k;
-           if(Params(ans)->n_comps != 1)
-           {
-              for(k = 0; k < Params(ans)->n_comps; k++)
-               {
-                       pdens(ans)[k] += pdens(s[i])[k];
-               }
-           }
-        } 
-	Energy(ans) += Energy(s[i]);
-	for (j = 0; j < dim; j++) 
-	    Mom(ans)[j] += Mom(s[i])[j];
-        }
-        if(stateset == 0) printf("error in g_tetra_interpolator\n");
-/*	for (i = 1; i < 4; i++)
 	{
 	    if (Different_params(s[i],s[0]))
 	    {
@@ -1929,7 +1889,7 @@ EXPORT bool g_tetra_interpolator(
 	    g_obstacle_state(ans,g_sizest());
 	    return FUNCTION_SUCCEEDED;
 	}
-	Set_params(ans,s[0]); 
+	Set_params(ans,s[0]);	/* TODO: FIX THIS */
 	set_type_of_state(ans,GAS_STATE);
 	dim = Params(ans)->dim;
 
@@ -1963,7 +1923,6 @@ EXPORT bool g_tetra_interpolator(
 	    for (j = 0; j < dim; j++) 
 	    	Mom(ans)[j] += f[i]*Mom(s[i])[j];
 	}
-*/
 
 #if defined(COMBUSTION_CODE)
 	switch (Composition_type(ans))
@@ -1989,8 +1948,6 @@ EXPORT bool g_tetra_interpolator(
 	}
 #endif /* defined(COMBUSTION_CODE) */
 	reset_gamma(ans);
-        
-
 	return FUNCTION_SUCCEEDED;
 }		/*end g_tetra_interpolator*/
 
@@ -2109,47 +2066,8 @@ EXPORT void g_cube_interpolator(
 	Locstate	s[8];
 
 	states_on_bilinear_element(s,cb,soln->tri_grid);
-        //xiaoxue
-        bool stateset = 0;
-	for (i = 1; i < 8; i++)
-	{
-          if (is_obstacle_state(s[i]))
-              continue;
-          stateset = 1;
-	Set_params(ans,s[i]); 
-	set_type_of_state(ans,GAS_STATE);
-	dim = Params(ans)->dim;
 
-	Dens(ans) = 0.0;
-        if(g_composition_type() == MULTI_COMP_NON_REACTIVE)
-        {
-            if(Params(ans)->n_comps != 1)
-            {
-                for(i = 0; i < Params(ans)->n_comps; i++)
-                    pdens(ans)[i] = 0.0;     
-            }
-        }
-	Energy(ans) = 0.0;
-	for (j = 0; j < dim; j++)
-	Mom(ans)[j] = 0.0;
-	Dens(ans) = Dens(s[i]);
-        if(g_composition_type() == MULTI_COMP_NON_REACTIVE)
-        {
-	   int k;
-           if(Params(ans)->n_comps != 1)
-           {
-              for(k = 0; k < Params(ans)->n_comps; k++)
-               {
-                       pdens(ans)[k] += pdens(s[i])[k];
-               }
-           }
-        } 
-	Energy(ans) += Energy(s[i]);
-	for (j = 0; j < dim; j++) 
-	    Mom(ans)[j] += Mom(s[i])[j];
-        }
-        if(stateset == 0) printf("error in g_tetra_interpolator\n");
-/*	for (i = 1; i < 8; i++)
+	for (i = 1; i < 8; i++)
 	{
 	    if (Different_params(s[i],s[0]))
 	    {
@@ -2174,7 +2092,7 @@ EXPORT void g_cube_interpolator(
 	    return;
 	}
 
-	Set_params(ans,s[0]);	
+	Set_params(ans,s[0]);	/* TODO: FIX THIS */
 	set_type_of_state(ans,GAS_STATE);
 	dim = Params(ans)->dim;
 
@@ -2220,7 +2138,7 @@ EXPORT void g_cube_interpolator(
 	    for (j = 0; j < dim; j++) 
 	    	Mom(ans)[j] += f[i]*Mom(s[i])[j];
 	}
-	*/
+	
 #if defined(COMBUSTION_CODE)
 	switch (Composition_type(ans))
 	{

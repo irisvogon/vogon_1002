@@ -165,8 +165,6 @@ EXPORT void hyp_npt(
 #endif /* defined(TWOD) || defined(THREED) */
 	}
 
-        print_storage("before hyp_npt start","HYP_storage");	
-        
 	hdir = ds;		/* grid spacing in sweep direction */
 	switch (idirs[0])
 	{
@@ -256,8 +254,6 @@ EXPORT void hyp_npt(
 	    	{
 	    	    set_static_coords(icoords,&Basep,idirs[1],i1,gr);
 		    sten->reg_stencil = NO;
-                    for(i = 0; i < num_pts; i++)
-                        sten->boundarystate_store[i] = 0;
 		    for (i0 = i0min; i0 < i0max; ++i0) 
 		    {
 			//if(i0 == 36 && i1 == 23 && i2 == 5)
@@ -265,9 +261,6 @@ EXPORT void hyp_npt(
 			//    add_to_debug("npt_3comp");
 			//    printf("#posn b %d  %d  %d \n", i0, i1, i2);
 			//}
-                        for(i = 0; i < num_pts; i++)
-                          sten->boundarystate_store[i] = 0;
-
 			update_reg_grid_state(ds,dt,swp_num,iperm,i0,
 					      sten,&Basep,max_comp);
 			if(debugging("npt_3comp"))
@@ -371,7 +364,6 @@ bool	extrp_st_along_normal(Locstate, float*, Stencil*, Front*);
 *	Computes the solution at a given point based on at stencil of
 *	surrounding points.
 */
-void printf_state(int , Locstate);
 
 LOCAL	void update_reg_grid_state(
 	float		ds,
@@ -383,7 +375,7 @@ LOCAL	void update_reg_grid_state(
 	POINT		*basep,
 	COMPONENT	max_comp)
 {
-        Wave		*wave = sten->wave;
+	Wave		*wave = sten->wave;
 	Wave		*newwave = sten->newwave;
 	Front		*fr = sten->fr;
 	Front		*newfr = sten->newfr;
@@ -393,27 +385,51 @@ LOCAL	void update_reg_grid_state(
 	int		i, j, index, idir = iperm[swp_num];
 	int		**icoords = sten->icoords;
 
+	//TMP
+//#define DEBUG_HYP_NPT	
+#if defined(DEBUG_HYP_NPT)
+	int		deb_hyp_npt = NO;
+
+static	char fname[3][11] = {"xhyp_npt()","yhyp_npt()","zhyp_npt()"};
+	if (debugging("hyp_npt"))			deb_hyp_npt = YES;
+	else if (debugging("xhyp_npt") && idir == 0)	deb_hyp_npt = YES;
+	else if (debugging("yhyp_npt") && idir == 1)	deb_hyp_npt = YES;
+	else if (debugging("zhyp_npt") && idir == 2)	deb_hyp_npt = YES;
+	else						deb_hyp_npt = NO;
+
+#endif /* defined(DEBUG_HYP_NPT) */
+
 	for (i = -endpt; i <= endpt; ++i)
 	    icoords[i][idir] = is + i;
-	
-        //xiaoxue
-	for (i = -endpt; i <= endpt; ++i)
-        {
-            float* xcoords;
-            Locstate xstate;
-            xstate = Rect_state(icoords[i],wave);
-            xcoords = Rect_coords(icoords[i],wave);
-        }
-        sten->prev_reg_stencil = sten->reg_stencil;
+	sten->prev_reg_stencil = sten->reg_stencil;
 
 		/* Find components and crosses*/
 
 	new_comp = set_stencil_comps_and_crosses(idir,sten);
-        //xiaoxue
-        new_comp = 3;
 	comp = sten->comp;
 
-        if (is_vec_method)
+#if defined(DEBUG_HYP_NPT)
+	if (icoords[0][0] == 6 && 
+	   	    icoords[0][1] == 35)
+	{
+	    deb_hyp_npt = YES;
+	    add_to_debug("mymuscl");
+	}
+	if (deb_hyp_npt)
+	{
+	    (void) printf("\n%s - ",fname[idir]);
+	    print_int_vector("icoords[0] = ",icoords[0],dim,"\n");
+	    (void) printf("\n comps: ");
+	    for (i = -endpt; i <= endpt; ++i)
+	    	(void) printf("comp[%d] %d ",i,comp[i]);
+	    (void) printf("new_comp %d\n",new_comp);
+	    //TMP
+            sten->prev_reg_stencil = NO;
+	    goto jump_is_vec_method;
+	}
+#endif /* defined(DEBUG_HYP_NPT) */
+
+	if (is_vec_method)
 	{
 	    if (interior_sten_reg(is,idir,sten))
 	    	return;		/*Don't overwrite vector solution*/
@@ -441,10 +457,8 @@ jump_is_vec_method:
 		    Coords(sten->p[i])[j] = Coords(basep)[j];
 	    }
 	}
-	
-        sten->reg_stencil = YES;
-	
-        if (RegionIsFlowSpecified(Rect_state(icoords[0],newwave),
+	sten->reg_stencil = YES;
+	if (RegionIsFlowSpecified(Rect_state(icoords[0],newwave),
 			          Rect_state(icoords[0],wave),
 			          Coords(sten->p[0]),new_comp,comp[0],fr))
 	{
@@ -452,22 +466,22 @@ jump_is_vec_method:
 	    return;
 	}
 
-//	if ((new_comp > max_comp) && (swp_num > 0))
-//	{
-//	    sten->reg_stencil = NO;
-//	    ft_assign(Rect_state(icoords[0],newwave),
-//	    	   Rect_state(icoords[0],wave),fr->sizest);
-//	    return;
-//	}
+	if ((new_comp > max_comp) && (swp_num > 0))
+	{
+	    sten->reg_stencil = NO;
+	    ft_assign(Rect_state(icoords[0],newwave),
+	    	   Rect_state(icoords[0],wave),fr->sizest);
+	    return;
+	}
 
-//	if (new_comp > max_comp)
-//	{
-//	    sten->reg_stencil = NO;
-//	    nearest_intfc_state_and_pt(Coords(sten->p[0]),new_comp,newfr,fr,
-//				       sten->worksp[0],Coords(sten->p[0]),&hs);
-//	    ft_assign(Rect_state(icoords[0],newwave),sten->worksp[0],fr->sizest);
-//	    return;
-//	}
+	if (new_comp > max_comp)
+	{
+	    sten->reg_stencil = NO;
+	    nearest_intfc_state_and_pt(Coords(sten->p[0]),new_comp,newfr,fr,
+				       sten->worksp[0],Coords(sten->p[0]),&hs);
+	    ft_assign(Rect_state(icoords[0],newwave),sten->worksp[0],fr->sizest);
+	    return;
+	}
 
 	if(the_point(sten->p[0]))
 	{
@@ -477,24 +491,82 @@ jump_is_vec_method:
 
 		/* Find mid state */
 	if (equivalent_comps(comp[0],new_comp,newfr->interf) == YES)
-        {
 	    sten->st[0] = Rect_state(icoords[0],wave);
-        }
 	else 
 	{
-            detect_and_load_mix_state(iperm[swp_num],sten,0);
+
+if(debugging("sample_speed"))
+{
+	    //TMP do not use front states.
+	    //get_st_from_interp(sten->worksp[0], sten->icoords[0], sten);
+
+if(debugging("norexp"))
+{
+	    if(!extrp_st_along_normal(sten->worksp[0], Coords(sten->p[0]), sten, fr))
+		get_st_from_ghost(sten->worksp[0], sten->icoords[0], sten);
+	    
+	    /*
+	    print_states_gas(sten->worksp[0]);
+	   
+	    get_st_from_ghost(sten->worksp[0], sten->icoords[0], sten);
+	    print_states_gas(sten->worksp[0]);
+	    
+	    get_st_from_interp(sten->worksp[0], sten->icoords[0], sten);
+	    print_states_gas(sten->worksp[0]);
+	    
+	    clean_up(ERROR);
+	    */
+}
+else
+{
+	    get_st_from_ghost(sten->worksp[0], sten->icoords[0], sten);
+}
+
+	    sten->st[0] = sten->worksp[0];
+
+	    //printf("#interp_npt\n");
+	    //print_states_gas(sten->st[0]);
+	    //add_to_debug("interp_npt");
+}
+else
+{
+
+	    if (!nearest_crossing_state_with_comp(icoords[0],
+	    		Coords(sten->p[0]),new_comp,
+			wave_tri_soln(newwave)->tri_grid,&sten->st[0]))
+	    {
+	    	nearest_intfc_state_and_pt(Coords(sten->p[0]),new_comp,fr,
+				       newfr,sten->worksp[0],
+				       Coords(sten->p[0]),&hs);
+	    	sten->st[0] = sten->worksp[0];
+	    }
+}
+
+	    detect_and_load_mix_state(iperm[swp_num],sten,0);
 	    sten->reg_stencil = NO;
-	    return;            
 	}
 	ft_assign(left_state(sten->p[0]),sten->st[0],fr->sizest);
 	ft_assign(right_state(sten->p[0]),sten->st[0],fr->sizest);
 
+	if(debugging("npt_3comp"))
+	    printf("#outer bf\n");
 
+	//printf("prev \n");	
 	find_outer_states(is,idir,sten,PREV);
+	//printf("next \n");	
 	find_outer_states(is,idir,sten,NEXT);
-      	
+	//printf("next f\n");	
+	
+	if(debugging("npt_3comp"))
+	    printf("#outer af\n");
 
+//#if defined(DEBUG_HYP_NPT)
+//	if (deb_hyp_npt)
 	if(the_point(sten->p[0]))
+	//if(debugging("interp_npt"))
+	//if(sten->icoords[0][0] == -2 && 
+	//   sten->icoords[0][1] == -4 && 
+	//   sten->icoords[0][2] == -4)
 	{
 	    (void) printf("STENCIL: "); print_Stencil(sten);
 	    for (i = -endpt; i <= endpt; ++i)
@@ -520,6 +592,7 @@ jump_is_vec_method:
 	//point_FD
 	npt_solver(ds,dt,Rect_state(icoords[0],newwave),dir,swp_num,iperm,
 		   &index,sten,wave);
+
 	if(the_point(sten->p[0]))
 	{
 	    printf("ans=\n");
@@ -534,18 +607,6 @@ jump_is_vec_method:
 	    remove_from_debug("mymuscl");
 	}
 #endif /* defined(DEBUG_HYP_NPT) */
-//        Locstate ppnew = NULL;
-//        for (i = -endpt; i <= endpt; ++i)
-//        printf("boundarystate[%d] = %d\n", i, sten->boundarystate[i]);
-
-        for (i = -endpt; i <= endpt; ++i)
-        {
-            if(sten->boundarystate[i]) 
-            {
-                free(sten->ststore[i + endpt]);
-            }
-        }
-        
 }		/*end update_reg_grid_state*/
 
 /*
@@ -608,9 +669,8 @@ EXPORT	COMPONENT	Find_rect_comp(
 	if ((is < -lbuf[idir]) || (is >= imax))
 	    return ext_comp;
 	else
-        {
 	    return Rect_comp(icoords,wave);
-        }	
+		
 }		/*Find_rect_comp*/
 
 /*
@@ -628,17 +688,13 @@ void set_flow_bdry_sten_states(int i, HYPER_SURF *hs, Stencil *sten,
 				CRX_SIDE side, int endpt);
 void interp_flow_bdry_states(int start, HYPER_SURF *hs, int side, int endpt, int new_comp,
 				Stencil *sten, CRXING *cross);
-void assign_reflective_state(Stencil*, int, int, int);
-
-void printf_state(int , Locstate);
-
 LOCAL	void find_outer_states(
 	int	 is,
 	int	 idir,
 	Stencil	 *sten,
 	CRX_SIDE side)
 {
-        Wave	   *wave = sten->wave;
+	Wave	   *wave = sten->wave;
 	Front	   *fr = sten->fr;
 	Front	   *newfr = sten->newfr;
 	COMPONENT  *comp = sten->comp, new_comp = sten->newcomp;
@@ -649,204 +705,7 @@ LOCAL	void find_outer_states(
 	CRXING	   *new_crx[MAX_NUM_CRX];
 
 	crx = NULL;
-
-        //ywall treatment 
-        float* coordsx = Rect_coords(icoords[0],wave);
-        float GLx = fr->rect_grid->GL[0];
-        float GUx = fr->rect_grid->GU[0];
-        float dh[3];
-        for(i = 0; i < 3; i++)
-            dh[i] = fr->rect_grid->h[i];
-
-        if(idir == 1 && coordsx[2] < 3.9) //ywall reflection
-        {
-            //xiaoxue
-            bool interside = 1;
-            for  (i = 1; i <= endpt; ++i)
-	    {
-	      indx = i * side;
-              if( comp[indx] != 3) interside = 0;
-	      if (equivalent_comps(comp[indx],new_comp,newfr->interf) == YES)
-	        sten->st[indx] = Rect_state(icoords[indx],wave);
-                continue;
-            }
-
-            if(interside == 1) return;
-
-            float ywall[2];
-            ywall[0] = 0.0;
-            ywall[1] = 3.75;
-            float* coordsywall;
-            int firstGhostCell = 0;
-            for(i = 1; i <= endpt; i++)
-            {
-                indx = i*side;
-                if(comp[indx] != 3) {
-                    firstGhostCell = indx;
-                    break;
-                }
-            }
-            int intCell = firstGhostCell - side;
-            int ghostCell = firstGhostCell;
-            while(ghostCell <= endpt && ghostCell >= - endpt && intCell <= endpt && ghostCell >= - endpt)
-            {
-                
-                assign_reflective_state(sten, ghostCell, intCell, 1);
-                intCell += -side;
-                ghostCell += side;
-            }
-            return;
-        }
-        else if( idir == 2 || (idir == 0 && side == 1 && coordsx[0] > -7.06 && coordsx[0] < 0.0)) //zwall and ramp reflection
-        {
-            bool interside = 1;
-            for  (i = 1; i <= endpt; ++i)
-	    {
-	      indx = i * side;
-              if( comp[indx] != 3) interside = 0;
-	      if (equivalent_comps(comp[indx],new_comp,newfr->interf) == YES)
-	        sten->st[indx] = Rect_state(icoords[indx],wave);
-                continue;
-            }
-
-            if(interside == 1) return;
-            
-            float zwall[3];
-            float zwallx[2];
-            zwall[0] = 1.6;
-            zwall[1] = 2.4;
-            zwall[3] = 3.9;
-            zwallx[0] = -7.0;
-            zwallx[1] = 0.0;
-            int firstGhostCell = 0;
-            for(i = 1; i <= endpt; i++)
-            {
-                indx = i*side;
-                if(comp[indx] != 3) {
-                    firstGhostCell = indx;
-                    break;
-                }
-            }
-            int intCell = firstGhostCell - side;
-            int ghostCell = firstGhostCell;
-            
-            int xdir;
-            if(idir == 2)
-            {
-                if( coordsx[2] > 3.0) xdir = 2;
-                else if(coordsx[0] > 0) xdir = 2;
-                else  xdir = 3;
-            }
-            else
-            {
-                xdir = 3;
-            }
-            while(ghostCell <= endpt && ghostCell >= - endpt && intCell <= endpt && ghostCell >= - endpt)
-            {
-                assign_reflective_state(sten, ghostCell, intCell, xdir);
-                intCell += -side;
-                ghostCell += side;
-            }
-            return;
-        }
-        else if( idir == 0 && side == -1)// inflow  
-        {
-              bool interside = 1;
-            for  (i = 1; i <= endpt; ++i)
-	    {
-	      indx = i * side;
-              if( comp[indx] != 3) interside = 0;
-	      if ( comp[indx] == 3 )
-	        sten->st[indx] = Rect_state(icoords[indx],wave);
-                continue;
-            }
-            if(interside == 1) return;
-            
-            int inflowindx;
-            for(i = 1; i <= endpt; i++)
-            {
-                indx = i*side;
-                if(comp[indx] == 7) {
-                    inflowindx = indx + 1;
-                    break;
-                }
-            }
-            
-            int ghostCell = inflowindx - 1;
-            while(ghostCell <= endpt && ghostCell >= - endpt) 
-            {
-                sten->st[ghostCell] = Rect_state(icoords[inflowindx],wave);
-                ghostCell += side;
-            }
-            return;
-        }
-        else if( idir == 0 && coordsx[0] >= GUx - 2*dh[0]) //outflow
-        {
-            bool interside = 1;
-            for  (i = 1; i <= endpt; ++i)
-	    {
-	      indx = i * side;
-              if( comp[indx] != 3) interside = 0;
-	      if ( comp[indx] == 2 )
-	        sten->st[indx] = Rect_state(icoords[indx],wave);
-                continue;
-            }
-            if(interside == 1) return;
-            
-            int outflowindx;
-            for(i = 1; i <= endpt; i++)
-            {
-                indx = i*side;
-                if(comp[indx] != 3) {
-                    outflowindx = indx - 1;
-                    break;
-                }
-            }
-            
-            int ghostCell = outflowindx + 1;
-            while(ghostCell <= endpt && ghostCell >= - endpt)
-            {
-                sten->st[indx] = Rect_state(icoords[outflowindx],wave);
-                ghostCell += side;
-            } 
-            return;
-        }
-        else if(coordsx[2] > 3.9)
-        {
-            //xiaoxue
-            bool interside = 1;
-            for  (i = 1; i <= endpt; ++i)
-	    {
-	      indx = i * side;
-              if( comp[indx] != 3) interside = 0;
-	      if (equivalent_comps(comp[indx],new_comp,newfr->interf) == YES)
-	        sten->st[indx] = Rect_state(icoords[indx],wave);
-                continue;
-            }
-            if(interside == 1) return;
-
-            int firstGhostCell = 0;
-            for(i = 1; i <= endpt; i++)
-            {
-                indx = i*side;
-                if(comp[indx] != 3) {
-                    firstGhostCell = indx;
-                    break;
-                }
-            }
-            int ghostCell = firstGhostCell;
-            while(ghostCell <= endpt && ghostCell >= - endpt)
-            {
-                if(idir != 2)
-                  assign_reflective_state(sten, ghostCell, 0, idir);
-                else
-                  sten->st[ghostCell] = sten->st[0];
-                ghostCell += side;
-            }
-            return;
-        }
-        printf("error! not included in the if-else cased in find_outer_state\n");
-        for  (i = 1; i <= endpt; ++i)
+	for  (i = 1; i <= endpt; ++i)
 	{
 	    indx = i * side;
 

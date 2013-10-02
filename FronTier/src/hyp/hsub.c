@@ -400,7 +400,6 @@ EXPORT	Stencil	*alloc_stencil(
 
 	scalar(&sten,sizeof(Stencil));
 	bi_array(&sten->icoords_store,npts,3,INT);
-        uni_array(&sten->boundarystate_store,npts,sizeof(bool));
 	bi_array(&sten->crxstore,npts,MAX_NUM_CRX,sizeof(CRXING **));
 	uni_array(&sten->ncstore,npts,INT);
 	uni_array(&sten->worksp_store,npts,sizeof(Locstate));
@@ -420,14 +419,12 @@ EXPORT	Stencil	*alloc_stencil(
 	sten->hs = sten->hsstore + nrad; /*TODO REMOVE*/
 	sten->p = sten->pstore + nrad;
 	sten->st = sten->ststore + nrad;
-        sten->boundarystate = sten->boundarystate_store + nrad;
 	for (i = 0; i < npts; ++i)
 	{
 	    sten->worksp_store[i] = sten->worksp_st_store + i*fr->sizest;
 	    sten->hsstore[i] = NULL;/*TODO REMOVE*/
 	    sten->ncstore[i] = 0;
 	    sten->crxstore[i][0] = NULL;
-            sten->boundarystate_store[i] = 0;
 	}
 	return sten;
 }			/*end alloc_stencil*/

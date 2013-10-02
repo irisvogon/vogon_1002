@@ -40,7 +40,6 @@ LOCAL  	float   jet_inner_func(POINTER,float*);
 LOCAL  	float   jet_outer_func(POINTER,float*);
 LOCAL   int     fuel_comp_func(POINTER, float*);
 LOCAL   int     flowin_comp_func(POINTER, float*);
-LOCAL   int     flowin_comp_func_x(POINTER, float*);
 LOCAL   int     cyl_pert_comp_func(POINTER, float*);
 LOCAL   int     plane_pert_comp_func(POINTER, float*);
 LOCAL   void    init_types_from_comp(POINTER);
@@ -259,10 +258,10 @@ int        me[3], *G;
 //	    rect_boundary_type(intfc,0,0) = REFLECTION_BOUNDARY; /* nozzle YYU */
 	if(me[1] == G[1] - 1)
 //	    rect_boundary_type(intfc,1,1) = REFLECTION_BOUNDARY; //TMP_TK
-	    rect_boundary_type(intfc,1,1) = MIXED_TYPE_BOUNDARY;
+	    rect_boundary_type(intfc,1,1) = SUBDOMAIN_BOUNDARY;
 	if(me[1] == 0)
 //	    rect_boundary_type(intfc,1,0) = REFLECTION_BOUNDARY; //TMP_TK
-	    rect_boundary_type(intfc,1,0) = MIXED_TYPE_BOUNDARY;
+	    rect_boundary_type(intfc,1,0) = SUBDOMAIN_BOUNDARY;
 	if(me[2] == G[2] - 1)
 	    //rect_boundary_type(intfc,2,1) = REFLECTION_BOUNDARY;/* 100325 YYU*/
 	    rect_boundary_type(intfc,2,1) = MIXED_TYPE_BOUNDARY;
@@ -777,7 +776,7 @@ EXPORT	void init_3comp_jet3d(
 	uni_array(&jet,10,sizeof(CURVE*));
 
 	is = ic = 0;
-	make_surfaces_from_comp(gr, flowin_comp_func_x, (POINTER)&fuel_params, 
+	make_surfaces_from_comp(gr, flowin_comp_func, (POINTER)&fuel_params, 
 			surfs, jet, &is, &ic);
 
 	//make_surfaces_from_files(gr, surfs, jet, &is, &ic); 
@@ -1320,7 +1319,6 @@ float		 r2, *cen;
 	return params->comp_gas;
 }
 
-
 LOCAL   int   flowin_comp_func(
         POINTER func_params,
         float *coords)
@@ -1346,9 +1344,8 @@ float		 r2, *cen, r1, wall;
 	if(coords[2] < bp->U[2]-0.15)
 	    return params->comp_gas;
 */
-      if(coords[1] < 0.0 || coords[1] > 3.75) return params->comp_obst;
-	
-        if(coords[2] > bp->U[2]-0.1 && coords[2] <= bp->U[2])
+
+	if(coords[2] > bp->U[2]-0.1 && coords[2] <= bp->U[2])
 	{
 	    if(sqr(coords[0]-cen[0]) + sqr(coords[1]-cen[1]) < sqr(r2))
 	    	return params->comp_gas;
@@ -1386,48 +1383,6 @@ float		 r2, *cen, r1, wall;
 }
 
 
-LOCAL   int   flowin_comp_func_x(
-        POINTER func_params,
-        float *coords)
-{
-FUEL_PARAMS      *params = (FUEL_PARAMS *) func_params;
-    return 3;
-
-/*JET_PARAMS       *params_in = params->params_in;
-JET_PARAMS       *params_out = params->params_out;
-BDRY_BOX_PARAMS  *bp = params->bp;
-float		 r2, *cen, r1, wall;
-        
-	cen = params_in->cen;
-	r2 = params_in->r2;
-	
-	if(coords[2] > bp->U[2])
-	    return  params->comp_top;
-	
-	if(coords[0] < bp->L[0]) //TK
-	    return params->comp_bot;
-      
-        if(coords[1] < 0.0 || coords[1] > 3.75) return params->comp_obst;
-	
-        if(coords[2] > bp->U[2]-0.1 && coords[2] <= bp->U[2])
-	{
-	    if(sqr(coords[0]-cen[0]) + sqr(coords[1]-cen[1]) < sqr(r2))
-	    	return params->comp_gas;
-	}
-
-
-	if(coords[0] > bp->L[0] && coords[0] <= -7)
-	    wall = bp->L[2]+0.1;
-	if(coords[0] > -7 && coords[0] <= -7+0.8/tan(3.1415926*10/180))
-	    wall = bp->L[2]+0.1+(coords[0]+7)*tan(3.1415926*10/180);
-	if(coords[0] > -7+0.8/tan(3.1415926*10/180))
-	    wall = bp->L[2]+0.1+0.8;
-	
-	if(coords[2] < bp->U[2]-0.1 && coords[2] > wall)
-	    return params->comp_gas;
-
-        return params->comp_obst;*/
-}
 
 LOCAL   int   cyl_pert_comp_func(
         POINTER  func_params,

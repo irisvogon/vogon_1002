@@ -250,14 +250,6 @@ EXPORT void oned_WENO(
 	for ( j = start; j < end; j++ )
 		for ( i = 0; i < kmax; i++ )
 			uu1[i][j] = u[i][j] + dtdni*(F_mid[j][i] - F_mid[j+1][i]);
-	for( j = start; j < end; j++)
-	{
-		if ( isnan(uu1[4][j]) ){
-			for ( i = 0; i < kmax; i++)
-				printf("u[%d][%d] = %e  Fmid[%d][%d] = %e  Fmid[%d][%d] = %e\n",i,j,u[i][j],j,i,F_mid[j][i],j+1,i,F_mid[j+1][i]);
-			printf("\n");
-		}
-	}
 
 	/* Step 2 of RK3 */
 	update_pressure_soundspeed_gamma(fr, vst, 0, 0, vsize + 1,  kmax, offset, uu1, p, c, GAM);
@@ -265,14 +257,7 @@ EXPORT void oned_WENO(
 	for ( j = start; j < end; j++ )
 		for ( i = 0; i < kmax; i++ )
 			uu2[i][j] = 0.75*u[i][j] + 0.25*uu1[i][j] + 0.25*dtdni*(F_mid[j][i] - F_mid[j+1][i]);
-	for( j = start; j < end; j++)
-	{
-		if ( isnan(uu2[4][j]) ){
-			for ( i = 0; i < kmax; i++)
-				printf("uu1[%d][%d] = %e  Fmid[%d][%d] = %e  Fmid[%d][%d] = %e\n",i,j,uu1[i][j],j,i,F_mid[j][i],j+1,i,F_mid[j+1][i]);
-			printf("\n");
-		}
-	}
+
 	free(uu1);
 
 	/* Step 3 of RK3 */
@@ -283,15 +268,6 @@ EXPORT void oned_WENO(
 	for ( j = start; j < end; j++ )
 		for ( i = 0; i < kmax; i++ )
 			u[i][j] = (1.0/3.0)*u[i][j] + (2.0/3.0)*uu2[i][j] + (2.0/3.0)*dtdni*(F_mid[j][i] - F_mid[j+1][i]);
-
-	for( j = start; j < end; j++)
-	{
-		if ( isnan(u[4][j]) ){
-			for ( i = 0; i < kmax; i++)
-				printf("uu2[%d][%d] = %e  Fmid[%d][%d] = %e  Fmid[%d][%d] = %e\n",i,j,uu2[i][j],j,i,F_mid[j][i],j+1,i,F_mid[j+1][i]);
-			printf("\n");
-		}
-	}	
 
 	free(uu2);
 
@@ -696,7 +672,7 @@ EXPORT void oned_WENO(
 		free(GAM);
 	}	
 
-	bool *Flag;
+/*	bool *Flag;
 	uni_array(&Flag, kmax + 1, sizeof(bool));
 	for (i = 0; i < kmax; ++i)
 		Flag[i] = YES;
@@ -714,7 +690,7 @@ EXPORT void oned_WENO(
 		}
 	    }
 	free(Flag);
-	
+*/	
 	/*  Solve for and add chemistry source term */
         if( (swp_num == 2) /*&& (sten==NULL)*/)
 	{
@@ -1009,6 +985,7 @@ LOCAL	void	compute_weno_flux ( Front* fr, Vec_Gas* vst, int start, int end, int 
 	float	   *mom0, *mom1, *mom2, *rho, *en_den;  // State variables at cell centers
 	float	   vm0, vm1, vm2, cm, rhom, pm, hm;	// State variables at midstate.
 	float	   rhom0[num_comps];				
+	Locstate   midst = NULL;
 	
 	int	   s;			// Index in characteristic space.
 
@@ -1039,8 +1016,10 @@ LOCAL	void	compute_weno_flux ( Front* fr, Vec_Gas* vst, int start, int end, int 
 	
 	/* Compute maximum eigenvalues */
 	//TMP_XY_weno
+	int i = 0, j = 0;
 	for (int i = 0; i < 5; ++i)
 		maxeig[i] = 0.0;
+
 	for ( j = start; j < end; j++ ){
 		maxeig[0] = max( maxeig[0], fabs( mom0[j]/rho[j] - c[j] ));
 		maxeig[1] = max( maxeig[1], fabs( mom0[j]/rho[j] ));
@@ -1048,18 +1027,35 @@ LOCAL	void	compute_weno_flux ( Front* fr, Vec_Gas* vst, int start, int end, int 
 	}
 	maxeig[2] = maxeig[3] = maxeig[1];
 
+	if ( midst == NULL)
+		g_alloc_state(&midst,fr->sizest);
+	set_type_of_state(midst,GAS_STATE);
+
 	/* Main loop to compute weno fluxes used to update states 
 	   for the next time step. */
 	for ( j = start; j < end + 1; j++){
 		/* Compute midstate variables, Equation (4.1),
 		   by averaging two adjacent states */
-		rhom = 0.5 * (rho[j-1] + rho[j]);
-		pm = 0.5 * ( p[j-1] + p[j] );
-		vm0 = 0.5 * ( mom0[j-1] + mom0[j] ) / rhom;
-		vm1 = 0.5 * ( mom1[j-1] + mom1[j] ) / rhom;
-		vm2 = 0.5 * ( mom2[j-1] + mom2[j] ) / rhom;
-		GAMm = 0.5 * ( GAM[j-1] + GAM[j] );
-		cm = sqrt( (GAMm+1.0)*pm/rhom );//0.5*( c[j-1] + c[j] );
+		Set_params(midst,vst->state[j]);
+		Dens(midst) = rhom = 0.5 * ( rho[j-1] + rho[j] );
+		Mom(midst)[0] = 0.5 * ( mom0[j-1] + mom0[j] );
+		Mom(midst)[1] = 0.5 * ( mom1[j-1] + mom1[j] );
+		Mom(midst)[2] = 0.5 * ( mom2[j-1] + mom2[j] );
+		Energy(midst) = 0.5 * ( en_den[j-1] + en_den[j] );
+
+		/* Set mid state mass fractions and partial densities */
+		for ( i = 0; i < num_comps; i++){
+			pdens(midst)[i] = 0.5 * (u[5+i][j-1] + u[5+i][j]);	// partial density 
+			rhom0[i] = pdens(midst)[i] / Dens(midst);		// mass fraction
+		}
+
+		pm = pressure( midst );
+		vm0 = Mom(midst)[0] / Dens(midst);
+		vm1 = Mom(midst)[1] / Dens(midst);
+		vm2 = Mom(midst)[2] / Dens(midst);
+		GAMm = gruneisen_gamma( midst );
+		cm = sound_speed( midst );
+
 		hm = 0.5*(vm0*vm0 + vm1*vm1 + vm2*vm2) + (GAMm+1.0)*pm/(GAMm*rhom);
 		
 		/* Load right eigenvector matrix */
@@ -1128,10 +1124,6 @@ LOCAL	void	compute_weno_flux ( Front* fr, Vec_Gas* vst, int start, int end, int 
 			for ( k = 0; k < 5; k++ )
 				L[i][k] *= GAMm / (2.0*cm*cm) ;
 
-		/* Set mid state mass fractions */
-		for ( i = 0; i < num_comps; i++)
-			rhom0[i] = (u[5+i][j-1] + u[5+i][j])/(u[0][j-1] + u[0][j]);
-
 		/* Flux Splitting */
 		for ( i = 0; i < 6; i++){
 			F_tmp[i] = F_old[j-3+i];
@@ -1193,6 +1185,7 @@ LOCAL	void	compute_weno_flux ( Front* fr, Vec_Gas* vst, int start, int end, int 
 	}
 
 	/* Free memory */
+	free( midst );
 	free( maxeig );
 	free( Fm_plus );
 	free( Fm_minus );
@@ -1251,8 +1244,8 @@ LOCAL	void	compute_weno_weights ( float** LF, float* f_new)
 	float	a[3][5] = { {1.0/3.0, -7.0/6.0, 11.0/6.0, 0.0, 0.0},
 			    {0.0, -1.0/6.0, 5.0/6.0, 1.0/3.0, 0.0},
 			    {0.0, 0.0, 1.0/3.0, 5.0/6.0, -1.0/6.0} }; 	// Table I
-//	float	eps = 1e-6;
-	float	eps = 1e-12;
+	float	eps = 1e-6;
+//	float	eps = 1e-12;
 	float	*lsf;
 	float	alpha[3];
 	float	sum_alpha;
@@ -1435,7 +1428,7 @@ EXPORT void oned_MUSCL(
                 kmax += num_comps;
         }
 
-	bool *Flag;
+/*	bool *Flag;
 	uni_array(&Flag, kmax + 1, sizeof(bool));
 	for (i = 0; i < kmax; ++i)
 	    Flag[i] = NO;
@@ -1451,7 +1444,7 @@ EXPORT void oned_MUSCL(
 		}
 	    }
 	free(Flag);
-
+*/
 	/* Evolve for half time step.  The returned data uL and uR
 	 * are these evolved states on the two sides of each mesh edge. 
 	 * They will be put in the Riemann solver. */
@@ -6131,25 +6124,25 @@ LOCAL	void compute_square_circle(
 		   {
 			l0 = fabs(sq[i][j][0] - xc) - sqrt( radius*radius - (sq[i][j][1] - yc)*(sq[i][j][1] - yc));
 			l1 = fabs( sq[i][j][1] - yc) - sqrt( radius*radius - (sq[i][j][0] - xc)*(sq[i][j][0] - xc));
-			*rate = 0.5*l0*l1/(xl*yl);
+			*rate = 1 - 0.5*l0*l1/(xl*yl);
 		   }
 		   else if( cover[i][rj] == 1 && cover[ri][j] == 0)
 		   {
 			l0 = sqrt(radius*radius - (sq[i][j][0] - xc)*(sq[i][j][0] - xc)) - fabs(sq[ri][rj][1] - yc);	
 			l1 = sqrt(radius*radius - (sq[ri][rj][0] - xc)*(sq[ri][rj][0] - xc)) - fabs(sq[ri][rj][1] - yc);
-			*rate = 1- 0.5*(l0 + l1)*xl/(xl*yl);
+			*rate = 0.5*(l0 + l1)*xl/(xl*yl);
 		   }
 		   else if(cover[i][rj] == 0 && cover[ri][j] == 1)
 		   {
 			l0 = sqrt( radius * radius - (sq[ri][j][1] - yc)*(sq[ri][j][1] - yc)) - fabs(sq[ri][j][0] - xc);
 			l1 = sqrt( radius * radius - (sq[ri][rj][1] - yc)*(sq[ri][rj][1] - yc)) - fabs(sq[ri][rj][0] - xc);
-			*rate = 1 - 0.5*(l0+l1)*yl/(xl*yl);
+			*rate = 0.5*(l0+l1)*yl/(xl*yl);
 		   }
 		   else
 		   {
 			l0 = sqrt(radius * radius - (sq[ri][rj][1] - yc)*(sq[ri][rj][1] - yc)) - fabs(sq[ri][rj][0] - xc);
 			l1 = sqrt(radius * radius - (sq[ri][rj][0] - xc)*(sq[ri][rj][0] - xc)) - fabs(sq[ri][rj][1] - yc);
-			*rate = 1 - 0.5*l0*l1/(xl*yl);
+			*rate = 0.5*l0*l1/(xl*yl);
 		   }
 		}
 	    }

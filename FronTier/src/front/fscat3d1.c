@@ -4589,7 +4589,7 @@ EXPORT	void communicate_default_comp(
         G = pp_grid->gmax;
         find_Cartesian_coordinates(myid,pp_grid,me);
 
-//	if (debugging("default_comp"))
+	if (debugging("default_comp"))
 	{
 	    (void) printf("Entering communicate_default_comp()\n");
 	    (void) printf("myid = %d\n",myid);
@@ -4600,14 +4600,14 @@ EXPORT	void communicate_default_comp(
 	count = 0;
 	while (pp_min_status(status) == NO)
 	{
-//	    if (debugging("default_comp"))
+	    if (debugging("default_comp"))
 	    	(void) printf("Round %d\n",count);
 	    
 	    for (i = 0; i < dim; ++i)
 	    {
 	    	for (j = 0; j < 2; ++j)
 		{
-//		    if(debugging("default_comp"))
+		    if(debugging("default_comp"))
 		        printf("\n#comm buf %d %d\n", i, j);
 		    pp_gsync();
 
@@ -4618,14 +4618,12 @@ EXPORT	void communicate_default_comp(
 		    {
 		    	him[i] = (me[i] + 2*j - 1 + G[i])%G[i];
 			dst_id = domain_id(him,G,dim);
-			//xiaoxue
-                        //comp_buf = buffer_component(intfc,i,j);
-                        comp_buf = 3;
+			comp_buf = buffer_component(intfc,i,j);
 			if (comp_buf != NO_COMP)
 			    intfc->default_comp = comp_buf;
 			pp_send(0,&comp_buf,INT,dst_id);
 			
-//			if (debugging("default_comp"))
+			if (debugging("default_comp"))
 			{
 			    (void) printf("comp_buf = %d\n",comp_buf);
 			    (void) printf("Send dst_id = %d\n",dst_id);
@@ -4686,12 +4684,10 @@ LOCAL COMPONENT buffer_component(
 			(U[dir] + 0.5*h[dir]);
 
 	comp = component(coords,intfc);
-	printf("in buffer_comp comp = %d\n",comp);
-        if(comp == NO_COMP)
+	if(comp == NO_COMP)
 	    return intfc->default_comp;
 	else
 	    return comp;
-        
 
 }	/* end buffer_component */
 

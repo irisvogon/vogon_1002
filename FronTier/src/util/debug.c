@@ -397,7 +397,7 @@ static int  looped = 0;
 
 #include <stdarg.h>
 
-//#define FAST_DEBUG
+#define FAST_DEBUG
 #if defined(FAST_DEBUG)
 
 EXPORT	void debug_print(

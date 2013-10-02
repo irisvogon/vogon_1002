@@ -1273,6 +1273,73 @@ void	get_constant_state(
 	}
 
 	return;
+
+	v = -120.5;
+	r_nozz = 0.1;
+	tin = 0.06/2.29741899e-01;     //=0.304,   6% turb intensity
+
+	pertn = (pert_step)%Nx;
+	if(pertn == Nx-1)
+	    pertn = Nx-2;
+
+	if(!is_obstacle_state(sl))
+	{
+	    dh = r_nozz/My;
+	    
+	    r = sqrt(sqr(coords[0]) + sqr(coords[1]));
+	    ang = angle(coords[0], coords[1]);
+
+	    rn = (int)(r/dh);
+	    f = r/dh - rn;
+
+	    if(rn >= My-1)
+	    {
+		rn = My-2;
+		f = 0.0;
+	    }
+
+	    pr = pertin[pertn][rn][0]*(1.0-f) + pertin[pertn][rn+1][0]*f;
+	    pz = pertin[pertn][rn][1]*(1.0-f) + pertin[pertn][rn+1][1]*f;
+	    
+	    st_type = state_type(sl);
+	    set_state(sl, TGAS_STATE, sl);
+    	    
+	    Vel(sl)[0] = pr*cos(ang)*tin*v;
+	    Vel(sl)[1] = pr*sin(ang)*tin*v;
+	    Vel(sl)[2] = v + pz*tin*v;
+
+	    if(comp == 3)
+            {
+		//MP
+		Press(sl) = 0.324;
+                Dens(sl) = 0.0000846;
+            }
+            else
+            {
+		//MP
+		Press(sl) = 4.9;
+                Dens(sl) = 0.00048;
+		
+		Press(sl) = 9.2;
+                Dens(sl) = 0.00076;
+            }
+
+            if(g_composition_type() == MULTI_COMP_NON_REACTIVE)
+            {
+                if(comp == 3)
+                {
+                    pdens(sl)[0] = 0.0;
+                    pdens(sl)[1] = Dens(sl);
+                }
+                else
+                {
+                    pdens(sl)[0] = Dens(sl);
+                    pdens(sl)[1] = 0.0;
+                }
+            }
+
+            set_state(sl, st_type, sl);
+	}
 }
 
 void	get_constant_state_init(Locstate, int, float*, float);

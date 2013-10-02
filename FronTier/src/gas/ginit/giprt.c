@@ -1403,7 +1403,7 @@ LOCAL float return_ohsconcentration(
 	Locstate	state)
 {
 	if (is_obstacle_state(state)) return 0.0;
-	return pdens(state)[9]/Dens(state);
+	return OHS(state);
 }		/*end return_ohsconcentration*/
 
 /* ARGSUSED */

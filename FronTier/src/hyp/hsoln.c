@@ -164,22 +164,22 @@ EXPORT void h_hyp_solution(
 	for (i = 0; i < dim; ++i)
 	    newcrds[i] = coords[i];
 
-	if (hs == NULL)
-	{
+//	if (hs == NULL)
+//	{
 	    /*
 	    *  Call to nearest_interface_point() is okay
 	    *  as interface topology is now fixed
 	    */
-	    if (!nearest_interface_point(coords,comp,intfc,NO_SUBDOMAIN,
-					 NULL,coords_on,t,&hse,&hs))
-	    {
-	        screen("ERROR in h_hyp_solution(), "
-	               "can't find nearest interface point\n");
-	        clear_state(front->interf,state,front->sizest);
-	        clean_up(ERROR);
-	        return;
-	    }
-	}
+//	    if (!nearest_interface_point(coords,comp,intfc,NO_SUBDOMAIN,
+//					 NULL,coords_on,t,&hse,&hs))
+//	    {
+//	        screen("ERROR in h_hyp_solution(), "
+//	               "can't find nearest interface point\n");
+//	        clear_state(front->interf,state,front->sizest);
+//	        clean_up(ERROR);
+//	        return;
+//	    }
+//	}
 	wave_t = wave_type(hs);
 	//printf("w_type  %d\n", wave_t);
 	

@@ -75,7 +75,6 @@ EXPORT	void point_FD(
 	int		*index,
 	Stencil		*sten)
 {
-  //      printf("enter point_FD\n");
 	Front		*fr = sten->fr;
 	Front		*newfr = sten->newfr;
 	RECT_GRID	*gr = fr->rect_grid;
@@ -113,18 +112,12 @@ EXPORT	void point_FD(
 	int  *lbuf, *ubuf;
 	lbuf = gr->lbuf;
 	ubuf = gr->ubuf;
+
 	if (is_obstacle_state(sten->st[0])) 
 	{
 	    g_obstacle_state(ans,sten->fr->sizest);
 	    return;
 	}
- //       if (is_obstacle_state(sten->st[0])) printf("error!\n");  
-   //     printf("sten->st[-2] = %d , sten->st[-1] = %d ,sten->st[0] = %d ,sten->st[1] = %d ,sten->st[2] = %d\n", is_obstacle_state(sten->st[-2]),  is_obstacle_state(sten->st[-1]), is_obstacle_state(sten->st[0]), is_obstacle_state(sten->st[1]), is_obstacle_state(sten->st[2])); 
-     //   for(i = 0 ; i < npts; i++)
-       //    {
-         //       printf(" i = %d is_obstacle(state) = %d\n", i, is_obstacle_state(sten->ststore[i]));
-           //     printf(" i = %d is_obstacle(state) = %d\n", i, is_obstacle_state(sten->st[i-2]));
-      //     }                
 	
 	for( i = 0; i < dim; i++)    idirs[i] = iperm[(i+swp_num)%3];
 
@@ -163,12 +156,16 @@ EXPORT	void point_FD(
 				  sten->newcomp,sten->newcomp,fr))
 	    return;
 
-        
-	if(Coords(sten->pstore[2])[2] > 3.90)
+	if((idirs[0] == 0 || idirs[0] == 1) && Coords(sten->pstore[2])[2] > 3.90)
 	{
 	      	ft_assign(instx,sten->ststore[2],fr->sizest);
 		get_constant_state(instx, 3, Coords(sten->pstore[2]),fr->time);
 		float* coordsxx = Coords(sten->pstore[2]);
+		float f[5];
+		f[0] = Dens(instx);
+		f[1] = Energy(instx);
+		for( i = 0; i < 3; i++)
+			f[2+i] = Mom(instx)[i];
 		Dens(ans) = Dens(instx);
 		if(g_composition_type() == MULTI_COMP_NON_REACTIVE)
 		{
@@ -182,7 +179,7 @@ EXPORT	void point_FD(
 		set_type_of_state(ans,GAS_STATE);
 		return;
 	}
-        
+
         /* Hard wired code */
         if(g_composition_type() == MULTI_COMP_NON_REACTIVE)
         {
@@ -261,27 +258,15 @@ EXPORT	void point_FD(
 		break;
 	    }
 	}
+	
 
-        if(debugging("weno"))
-        {
-                printf("\n\n");
-                printf("in point_FD\n");
-                printf("update coords[%f %f %f]\n", Coords(sten->pstore[2])[0],Coords(sten->pstore[2])[1],Coords(sten->pstore[2])[2]); 
-
-        }
-         //       if(idirs[0] == 1)
- //       {
-//            for(i = 0; i < 5; i++)
-//                printf("rho = %f vel = [%f %f %f] Energy= %f\n", Dens(sten->ststore[i]), Mom(sten->ststore[i])[0]/Dens(sten->ststore[i]), Mom(sten->ststore[i])[1]/Dens(sten->ststore[i]),Mom(sten->ststore[i])[2]/Dens(sten->ststore[i]),Energy(sten->ststore[i]));
-//        }
-            //WENO_xiaoxue
+	//WENO_xiaoxue
 	/*The old point FD used with MUSCL scheme need 5 point stencil, The new point_FD used by weno scheme need 9 extra point*/
 	    //Hard coding code to assign the state for point_FD.
 	    icoordsp[0] = icoords[0][0];
 	    icoordsp[1] = icoords[0][1];
 	    icoordsp[2] = icoords[0][2];
 	    coordsx = Rect_coords(icoordsp ,wave); //coodinate of the point in the middle of the stencil
-
 	    int sten_comp[5]; 
 	    comp = Rect_comp(icoordsp,wave);
 	    for( i = 0; i < 5; i++)
@@ -290,38 +275,31 @@ EXPORT	void point_FD(
 		sten_comp[i] = Rect_comp(icoordsp,wave);
 	    }
 
-	    if( sten_comp[3] == 3 && sten_comp[4] == 3)
+	    if( sten_comp[3] == sten_comp[4] && sten_comp[3] + sten_comp[4] == 2*3)
 		upboundary = 0;
-	    else if( sten_comp[0] == 3 && sten_comp[1] == 3)
-		upboundary = 1;	  
-            else if( sten_comp[0] == 7 || sten_comp[0] == 7)
-                upboundary = 0;
-//	    else if( sten_comp[3] == 3 && sten_comp[0] != 3 && sten_comp[1] != 3 && sten_comp[4] != 3)
-//		upboundary = 0;
-//	    else if( sten_comp[1] == 3 && sten_comp[0] != 3 && sten_comp[3] != 3 && sten_comp[4] != 3)
-//		upboundary = 1;
-//          else if( sten_comp[0] == 7 || sten_comp[0] == 1)
-//                upboundary = 0;
-	    else  
+	    else if( sten_comp[0] == sten_comp[1] && sten_comp[0] + sten_comp[1] == 2*3)
+		upboundary = 1;
+	    else
 		printf("ERROR in the componet of the point_FD! comp = [%d  %d  %d  %d  %d]\n", sten_comp[0], sten_comp[1], sten_comp[2], sten_comp[3], sten_comp[4]);
 		
 	    int pdir;
 	    if(upboundary) pdir = -1; else pdir = 1;
 	    comp = Rect_comp(icoords[0],wave);
-     //       printf("icoords[0] = %d comp = %d\n",icoords[0][0], icoords[0][1], icoords[0][2], comp);
-            icoordsp[0] = icoords[0][0];
-	    icoordsp[1] = icoords[0][1];
-	    icoordsp[2] = icoords[0][2];
 	    for( i = 0; ;i++)
 	    {
 		icoordsp[idirs[0]] = icoords[0][idirs[0]] + i*pdir;
-        //        printf("i = %d icoordsp = [%d %d %d] comp = %d\n",i, icoordsp[0], icoordsp[1],icoordsp[2], Rect_comp(icoordsp,wave));
 		if(comp != Rect_comp(icoordsp,wave) || icoordsp[idirs[0]] < imin[idirs[0]] || icoordsp[idirs[0]] >= imax[idirs[0]])
 			break;
 	    }
 	    leng = 2 + i;
-            
-     
+
+//	printf("leng = %d\n", leng);
+	if(leng < 5)
+	{
+	    printf("pdir = %d\n",pdir);
+	    for( i = 0; i < 5; i++)
+		    printf("i = %d  coords = [%f  %f  %f] comp = %d \n", i,Coords(sten->p[i-2])[0],Coords(sten->p[i-2])[1],Coords(sten->p[i-2])[2], sten_comp[i]);
+	}
 	if(upboundary)
 	{
 	    for(i = 0; i < 7; i++)
@@ -338,6 +316,7 @@ EXPORT	void point_FD(
 			    first_interior_cell++;
 			}			
 		    	state[i] = st = sten->ststore[first_interior_cell];
+	    		coords[i] = Coords(sten->pstore[first_interior_cell]);//TO BE FIXED
 	    		rho[i] = Dens(st);
 	    		en_den[i] = Energy(st);
 	    		for (j = 0; j < dim; ++j)
@@ -371,6 +350,7 @@ EXPORT	void point_FD(
 		        else ldex = icoords[0][idirs[0]] + 3 - leng;
 			icoordsp[idirs[0]] = ldex;
 			state[i] = st = Rect_state(icoordsp,wave);
+			coords[i] = Rect_coords(icoordsp,wave);
 	   		rho[i] = Dens(st);
 	    		en_den[i] = Energy(st);
 	    		for (j = 0; j < dim; ++j)
@@ -402,6 +382,7 @@ EXPORT	void point_FD(
 	     for (i = 7; i < 7 + npts; ++i)
 	     {
 	    	state[i] = st = sten->ststore[i-7];
+	    	coords[i] = Coords(sten->pstore[i-7]);
 	    	rho[i] = Dens(st);
 	    	en_den[i] = Energy(st);
 	    	for (j = 0; j < dim; ++j)
@@ -435,6 +416,7 @@ EXPORT	void point_FD(
 	    for (i = 0; i < npts; ++i)
 	    {
 	    	state[i] = st = sten->ststore[i];
+	    	coords[i] = Coords(sten->pstore[i]);
 	    	rho[i] = Dens(st);
 	    	en_den[i] = Energy(st);
 	    	for (j = 0; j < dim; ++j)
@@ -468,6 +450,7 @@ EXPORT	void point_FD(
 	        if(i < leng) ldex = icoords[0][idirs[0]] + i - 2 ; else ldex = icoords[0][idirs[0]] + leng - 3;
 	        icoordsp[idirs[0]] = ldex;
 		state[i] = st = Rect_state(icoordsp,wave);
+		coords[i] = Rect_coords(icoordsp,wave);
 	    	rho[i] = Dens(st);
 	    	en_den[i] = Energy(st);
 	    	for (j = 0; j < dim; ++j)
@@ -528,7 +511,7 @@ EXPORT	void point_FD(
 	    for (i = 0; i < npts; ++i)
 	    	radii[i] = pos_radius(Coords(sten->p[0])[0]+(i-endpt)*dh,gr);
 	}
-        
+
 	oned_interior_scheme(swp_num,iperm,sten->icoords[0],wave,newwave,
 		             fr,newfr,sten,0,npts,vst,src,dt,dh,dim);
 
@@ -560,8 +543,7 @@ EXPORT	void point_FD(
 	int k;
 	Merge_cell(ans) = Merge_cell(state_old);
 	Reflect_wall(ans) = Reflect_wall(state_old); Ramp_cellx(ans) = Ramp_cellx(state_old);Ramp_cellz(ans) = Ramp_cellz(state_old); //Nozzle(ans) = Nozzle(state_old);	
-	Reflect_wall_y(ans) = Reflect_wall_y(state_old);
-        flux_flag(ans)  = flux_flag(state_old);
+	flux_flag(ans)  = flux_flag(state_old);
 
 	for(i = 0; i < dim; i++)
 	{
@@ -582,6 +564,7 @@ EXPORT	void point_FD(
 	set_type_of_state(ans,GAS_STATE);
 
 	check_change_inflow_st(ans,Coords(sten->p[0]));
+
 	//TMP check
 	if(NO && pressure(ans) > 110.0)
 	{
@@ -632,7 +615,7 @@ EXPORT	void point_FD(
 
 	if(is_bad_state(ans,NO,"point_FD") || smooth_vel)
 	{
-	    printf("#TK point_FD in ghyperbolic.c smooth_vel=%d\n",smooth_vel);
+	    //printf("#TK point_FD in ghyperbolic.c smooth_vel=%d\n",smooth_vel);
 	    LF(dh,dt,ans,dir,swp_num,iperm,NULL,sten);
 	}
 	reset_gamma(ans);
@@ -1035,18 +1018,13 @@ EXPORT TIME_DYNAMICS g_load_state_vectors(
 	for (; i < 3; ++i)
 	    Q[i][i] = 1.0;
 	vst->Q = (const float* const*)Q;
-        if(debugging("weno")) 
-           printf("in vector_FD\n");        
 	for (i = imin; i < imax; ++i)
 	{
 	    icoords[idirs[0]] = i + pbuf;
 	    coords[i] = Rect_coords(icoords,wv);
-
-            //xiaoxue
-            int comp = Rect_comp(icoords,wv);
-	    if(debugging("weno"))
-            printf("icoords = [%d %d %d] comp = %d coords[%d] = [%f %f %f]\n", icoords[0], icoords[1], icoords[2], comp, coords[i][0], coords[i][1], coords[i][2]);
+	    
 	    rst = Rect_state(icoords,wv);
+	    
 	    //hard wird inflow
 	    {
 	    float	jetradius=0.1, jetcenter[] = {0.,0.,4.};
@@ -1081,8 +1059,6 @@ EXPORT TIME_DYNAMICS g_load_state_vectors(
                 if((params != NULL) &&
                    ((num_comps = params->n_comps) != 1))
                 {
-                    if(debugging("weno"))
-                        printf("not NULL params\n");
                     prho = pdens(rst);
                     for(j = 0; j < num_comps; j++)
                         rho0[j][i] = prho[j];
@@ -1116,13 +1092,8 @@ EXPORT TIME_DYNAMICS g_load_state_vectors(
 	Vec_Gas_field_set(vst,vacuum_dens) = YES;
 #endif /* !defined(UNRESTRICTED_THERMODYNAMICS) */
 	set_params_jumps(vst,imin,imax);
-        
-        if(debugging("weno"))
-            printf("vst->nprms = %d\n", vst->nprms);
 	if ((Params(state[0]) == NULL) && (vst->nprms <= 1))
 	{
-            if(debugging("weno"))
-                printf(" Params(state[0]) == NULL) && (vst->nprms <= 1)\n");
 	    int	nrad = vsten_radius(wv);
 	    copy_states_to_new_time_level(idirs,wv,newwv,imin+nrad,
 				          imax-nrad,icoords,pbuf);
@@ -1349,111 +1320,3 @@ LOCAL int local_LF_npt_tang_solver_switch(
         }
         return NO;
 }	/* end local_LF_npt_tang_solver_switch */
-
-void printf_state(int i, Locstate state)
-{
-   if(!is_obstacle_state(state))printf("i = %d rho = %f vel = [%f %f %f] Energy= %f\n",i, Dens(state), Mom(state)[0]/Dens(state), Mom(state)[1]/Dens(state),Mom(state)[2]/Dens(state),Energy(state));
-}
-
-void assign_reflective_state(Stencil *sten, int refs, int ints, int dirs)
-{
-    
-      Front *fr = sten->fr;
-      Locstate ref = NULL;
-      g_alloc_state(&ref, fr->sizest);
-      int	   **icoords = sten->icoords;
-      Locstate intState = Rect_state(icoords[ints],sten->wave);
-      if(((Gas *) (intState))->params == NULL) printf("intState is obstacel!\n");
-      Dens(ref) = Dens(intState);
-      if(dirs == 1 || dirs == 2 || dirs == 0)
-      {
-        for(int i = 0;  i < 3; i++)
-              Mom(ref)[i] = Mom(intState)[i];
-        Mom(ref)[dirs] *= -1;
-      }
-      else if(dirs == 3)
-      {
-         float nvec[3];
-	 nvec[0] = -sin10;
-	 nvec[1] = 0.0;
-	 nvec[2] = cos10;
-     	 float m_times_nnvec = 0;
-	 for(int i = 0; i < 3; i++)
-	      m_times_nnvec += Mom(intState)[i]*nvec[i];
-	 for(int i = 0; i < 3; i++)
-	      Mom(ref)[i] = Mom(intState)[i] - 2 * nvec[i]*m_times_nnvec;
-      }
-      
-      Energy(ref) = Energy(intState);
-      if(g_composition_type() == MULTI_COMP_NON_REACTIVE)
-      {
-            for(int j = 0; j < Params(intState)->n_comps; j++)
-                  pdens(ref)[j] = pdens(intState)[j];
-      }
-      
-      for(int i =0; i < 3; i++)
-	    Vel_Field(ref)[i] = Vel_Field(intState)[i];
-      Set_params(ref, intState);
-      set_type_of_state(ref,GAS_STATE); 
-      sten->st[refs] = ref;
-      sten->boundarystate[refs] = 1;
-      return;
-}
-
-/*void assign_reflective_state(Stencil *sten, int refs, int ints, int dirs)
-{
-    
-      Front *fr = sten->fr;
- //     Locstate ref = NULL;
-//      g_alloc_state(&ref, fr->sizest);
-      printf("in assign_refl ref = %d ints = %d\n", refs, ints);
-      Locstate ref = sten->st[refs];
-      printf("@\n");
-      int	   **icoords = sten->icoords;
-      Locstate intState = Rect_state(icoords[ints],sten->wave);
-      printf("@\n");
-      
-      if(((Gas *) (intState))->params == NULL) printf("intState is obstacel!\n");
-      printf("@\n");      
-      Dens(ref) = Dens(intState);
-      if(dirs == 1 || dirs == 2 || dirs == 0)
-      {
-        for(int i = 0;  i < 3; i++)
-              Mom(ref)[i] = Mom(intState)[i];
-        Mom(ref)[dirs] *= -1;
-         printf("@\n"); 
-      }
-      else if(dirs == 3)
-      {
-         float nvec[3];
-	 nvec[0] = -sin10;
-	 nvec[1] = 0.0;
-	 nvec[2] = cos10;
-     	 float m_times_nnvec = 0;
-	 for(int i = 0; i < 3; i++)
-	      m_times_nnvec += Mom(intState)[i]*nvec[i];
-	 for(int i = 0; i < 3; i++)
-	      Mom(ref)[i] = Mom(intState)[i] - 2 * nvec[i]*m_times_nnvec;
-          printf("@\n"); 
-      }
-      printf("@\n");      
-      Energy(ref) = Energy(intState);
-      printf("@\n");      
-      if(g_composition_type() == MULTI_COMP_NON_REACTIVE)
-      {
-            for(int j = 0; j < Params(intState)->n_comps; j++)
-                  pdens(ref)[j] = pdens(intState)[j];
-      }
-      printf("@\n");      
-      for(int i =0; i < 3; i++)
-	    Vel_Field(ref)[i] = Vel_Field(intState)[i];
-      Set_params(ref, intState);
-      printf("@\n");
-      
-      set_type_of_state(ref,GAS_STATE); 
-      printf("@\n");
-      
-      printf("leave assign_refl\n");
- //     sten->st[refs] = ref;
-      return;
-}*/

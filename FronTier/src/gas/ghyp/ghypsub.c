@@ -50,7 +50,6 @@ EXPORT void oblique_FD(
 	Locstate	ans,
 	Front		*fr)
 {
-        printf("enter oblique_FD\n");
 	COMPONENT      comp = tsten->comp;
 	const float    *dir = tsten->dir;
 	const float    *crds0;
@@ -168,71 +167,33 @@ EXPORT void oblique_FD(
 #endif /* !defined(UNRESTRICTED_THERMODYNAMICS) */
 	set_params_jumps(vst,0,npts);
 
-//	oned_tangential_scheme(fr,tsten,0,npts,vst,src,dt,ds,dim);
+	oned_tangential_scheme(fr,tsten,0,npts,vst,src,dt,ds,dim);
 
-        //xiaoxue
-      	Locstate sl = NULL;
-        if ( sl == NULL )  g_alloc_state(&sl, fr->sizest);
-        if(state[0] != NULL && !is_obstacle_state(state[0]))
-          Set_params(sl,state[0]);
-      	set_type_of_state(sl,TGAS_STATE);
-        Press(sl) = 12.5;
-      	Dens(sl) = 12.3e-4;
-      	Vel(sl)[0] = 0.0;
-      	Vel(sl)[1] = 0.0;
-      	Vel(sl)[2] = -123.0;
-      	for(i = 0; i < 10; i++)
-      		pdens(sl)[i] = 0.0;
-      	pdens(sl)[0] = Dens(sl);
-	set_state(sl, GAS_STATE, sl);
-	if(state[0] == NULL ||  is_obstacle_state(state[0])) printf("errro in oblique_FD\n");
-
-	if(state[0] != NULL && Dens(state[0]) > 0)
+	Dens(ans) = vst->rho[nrad];
+        if(g_composition_type() == MULTI_COMP_NON_REACTIVE)
         {
-          Dens(ans) = Dens(state[0]);
-          if(g_composition_type() == MULTI_COMP_NON_REACTIVE)
-          {
-              /* Compute differences for mass fraction */
-              Gas_param *params = Params(states[0]);
-              if(params->n_comps != 1)
-              {
-                  for(j = 0; j < params->n_comps; j++)
-                    pdens(ans)[j] = pdens(state[0])[j];
-              }
-          }
-	  Energy(ans) = Energy(state[0]);
-	  for (i = 0; i < dim; ++i)
-	  {
-	    Mom(ans)[i] = 0.0;
-	  }
+            /* Compute differences for mass fraction */
+            Gas_param *params = Params(states[0]);
+            if(params->n_comps != 1)
+            {
+                for(j = 0; j < params->n_comps; j++)
+                    pdens(ans)[j] = vst->rho0[j][nrad];
+            }
         }
-        else
-        {
-          Dens(ans) = Dens(sl);
-          if(g_composition_type() == MULTI_COMP_NON_REACTIVE)
-          {
-              /* Compute differences for mass fraction */
-              Gas_param *params = Params(states[0]);
-              if(params->n_comps != 1)
-              {
-                  for(j = 0; j < params->n_comps; j++)
-                    pdens(ans)[j] = pdens(sl)[j];
-              }
-          }
-	  Energy(ans) = Energy(sl);
-	  for (i = 0; i < dim; ++i)
-	  {
+	Energy(ans) = vst->en_den[nrad];
+	for (i = 0; i < dim; ++i)
+	{
 	    Mom(ans)[i] = 0.0;
-	  }
-        }
-	  
-          Set_params(ans,state[0]);
-	  set_type_of_state(ans,GAS_STATE);
-	  reset_gamma(ans);
+	    for (j = 0; j < dim; ++j)
+	    	Mom(ans)[i] += Q[j][i]*vst->m[j][nrad];
+	}
+	Set_params(ans,vst->state[nrad]);
+	set_type_of_state(ans,GAS_STATE);
+	reset_gamma(ans);
 
 	if (is_bad_state(ans,bad_state_flag,"oblique_FD"))
 	{
-//	    print_general_vector("crds0", crds0, 3, "\n");
+	    print_general_vector("crds0", crds0, 3, "\n");
 	    LFoblique(ds,dt,tsten,ans,fr);
 	}
 #if defined(CHECK_FOR_BAD_STATES)
@@ -278,7 +239,6 @@ EXPORT void oblique_FD(
 	}
 #endif /* defined(CHECK_FOR_BAD_STATES) */
 	debug_print("MUSCLob","Left oblique_FD():\n");
-        printf("leave oblique_FD\n");
 }			/*end oblique_FD*/
 
 
@@ -1229,7 +1189,6 @@ EXPORT	void g_assign_wave_state_vectors(
 	Locstate	state;
 	float		speed;
 
-        //xiaoxue
 	for (i = 0; i < dim; ++i)
 	    idirs[i] = iperm[(i+swp_num)%dim];
 	for (i = imin; i < imax; ++i)
@@ -1252,7 +1211,7 @@ EXPORT	void g_assign_wave_state_vectors(
                             pdens(state)[j] = vst->rho0[j][i];
                     }
                 }
-	    	for (k = 0; k < dim; ++k)
+	    	for (k = 0; k < dim; ++k) 
 	    	    Mom(state)[idirs[k]] = vst->m[k][i];
 		for(k =0; k< dim; k++)
 		    Vel_Field(state)[idirs[k]] = vst->vel_field[k][i];
@@ -1275,8 +1234,7 @@ EXPORT	void g_assign_wave_state_vectors(
 
 		Merge_cell(state) = Merge_cell(state_old);
 		Reflect_wall(state) = Reflect_wall(state_old); Ramp_cellx(state) = Ramp_cellx(state_old);Ramp_cellz(state) = Ramp_cellz(state_old); //Nozzle(state) = Nozzle(state_old);
-		Reflect_wall_y(state) = Reflect_wall_y(state_old);
-                /* Jan 2012 turbulence boundary layer model*/
+		/* Jan 2012 turbulence boundary layer model*/
 		if (vst->wall_unit != NULL)
 		    Wallunit(state) = vst->wall_unit[i];
 
@@ -1288,7 +1246,7 @@ EXPORT	void g_assign_wave_state_vectors(
 			    Qc(state)[k][j] = Qc(state_old)[k][j];
 		    Qh(state)[k] = Qh(state_old)[k];
 		}
-            }
-        }
+	    }
+	}
 }		/*end g_assign_wave_state_vectors*/
 

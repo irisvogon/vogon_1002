@@ -573,6 +573,7 @@ EXPORT	COMP_TYPE *comp_type(
 	COMPONENT	comp)
 {
 	static	int		maxcomp = -1;
+
 	if (ct == NULL)
 	{
 	    int i;
@@ -828,7 +829,7 @@ EXPORT	void	get_state_ambient(
 	Locstate	ct_state = Ambient(ct);
         int             save_stype = stype;
 
-        debug_print("init_states","Entered get_state_ambient()\n");
+	debug_print("init_states","Entered get_state_ambient()\n");
 	if ( ct->type != AMBIENT )
 	{
 	    screen("\nERROR in get_state_ambient(), "

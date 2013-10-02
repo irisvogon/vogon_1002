@@ -493,7 +493,7 @@ EXPORT	int	time_step(
 	    double pres_avg_wall = average_p_if_mach(wave, grid);
 	}
 
-	*dt_frac = 1.0 / 9.0;
+	*dt_frac = 1.0;
 	if (chart->parent == NULL && bc_propagate)
 	{
 	    start_clock("BDRY COND");
@@ -538,14 +538,14 @@ EXPORT	int	time_step(
 	front->dt_frac = dt_frac;
 
 	status = (*hyp)(dt,dt_frac,wave,front); /* Hyperbolic Step */
-	printf("xiaoxue: after hyperbolic step\n");
- //       if(front->turb_boundary_layer == YES)
-//	            (*chart->update_merge_cell)(dt,wave,front);
+
+	if(front->turb_boundary_layer == YES)
+	            (*chart->update_merge_cell)(dt,wave,front);
 	stop_clock("HYPERBOLIC");
 	print_storage("after HYPERBOLIC","HYP_storage");
+
 	if (status != GOOD_STEP)
 	{
-          printf("xiaoxue: not Good_step\n");
 	   print_time_step_status("WARNING in time_step(),  "
 				   "hyp step failed, status = ",status,"\n");
 	   DEBUG_LEAVE(time_step)
@@ -553,14 +553,8 @@ EXPORT	int	time_step(
 	}
    
 	start_clock("PARAB");
-        printf("before parab\n");
-        
-        print_storage("before PARABOLIC","PARA_storage");
 	if (chart->parab)
-	    (*chart->parab)(dt,dt_frac,wave,front);
-        print_storage("after PARABOLIC","PARA_storage");
-
-        printf("xiaoxue:pass parab driver\n");
+	    (*chart->parab)(dt,dt_frac,wave,front); 
 	stop_clock("PARAB");
 
 	DEBUG_LEAVE(time_step)

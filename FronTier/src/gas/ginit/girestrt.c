@@ -57,7 +57,8 @@ EXPORT void g_restart_initializer(
 	{	
 	    float coords[MAXD];
 	    RECT_GRID *gr = &restart_soln[0]->grid;
-            printf("comp = %d\n", comp);
+
+	    print_int_vector("icoords = ",icoords,dim," ");
 	    for (i = 0; i < dim; i++)
 	    	coords[i] = cell_edge(icoords[i],i,gr);
 	    print_general_vector(", coords = ",coords,dim,"\n");
